@@ -1,0 +1,6 @@
+torch
+torchvision
+torchmetrics
+scikit-learn
+scikit-image
+pandas

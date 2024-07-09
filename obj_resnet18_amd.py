@@ -23,7 +23,7 @@ def save_model_and_confusion_matrix(model: ResNet, confusion_matrix: np.ndarray,
 
     if confusion_matrix is not None:
         cm_df = pd.DataFrame(confusion_matrix)
-        cm_df.to_csv(os.path.join(path, f"{trail_number}_confusion_matrix.csv"), index=False)
+        cm_df.to_csv(os.path.join(path, f"{trail_number}_confusion_matrix.csv"), index=True)
 
 def objective(trial: optuna.Trial):
     classes = [OCTDLClass.AMD, OCTDLClass.NO]

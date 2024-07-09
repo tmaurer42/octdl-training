@@ -2,6 +2,7 @@ import os
 from enum import Enum
 import functools
 
+import torch
 from torch.utils.data import Dataset
 from torchvision import io, transforms
 from torchvision.io import ImageReadMode
@@ -23,11 +24,14 @@ class OCTDLClass(Enum):
 
 
 class OCTDLDataset(Dataset):
-    def __init__(self, data, transform=None):
+    def __init__(self, data, classes: list[str], transform=None):
         self.data = data
         self.transform = transform
-        self.classes = set([item[1] for item in data])
+        self.classes = classes
         self.class_to_index = {cls: i for i, cls in enumerate(self.classes)}
+
+        print("OCTDL Dataset initialized, "
+              f"labels: {', '.join([f'{cls}: {self.class_to_index[cls]}' for cls in self.classes])}")
 
     def __len__(self):
         return len(self.data)
@@ -40,9 +44,9 @@ class OCTDLDataset(Dataset):
         image = F.convert_image_dtype(image)
         if self.transform:
             image = self.transform(image)
-        categorical_label = self.class_to_index[label]
+        encoded_label = self.class_to_index[label]
 
-        return image, categorical_label
+        return image, encoded_label
     
 
 def get_image_label_pairs(
@@ -96,8 +100,17 @@ def load_octdl_dataset(
     val_data = get_image_label_pairs(val_ids, patient_to_images)
     test_data = get_image_label_pairs(test_ids, patient_to_images)
 
-    train_dataset = OCTDLDataset(train_data, transform=train_transform)
-    val_dataset = OCTDLDataset(val_data, transform=val_test_transform)
-    test_dataset = OCTDLDataset(test_data, transform=val_test_transform)
+    train_dataset = OCTDLDataset(train_data, labels, transform=train_transform)
+    val_dataset = OCTDLDataset(val_data, labels, transform=val_test_transform)
+    test_dataset = OCTDLDataset(test_data, labels, transform=val_test_transform)
 
-    return train_dataset, val_dataset, test_dataset
+    all_labels = labels_df['disease'].to_list()
+
+    balancing_weights = []
+    for cls in classes:
+        num_cls_labels = len([l for l in all_labels if l == cls.name])
+        balancing_weights.append(len(all_labels) / num_cls_labels)
+
+    balancing_weights = torch.Tensor(balancing_weights)
+
+    return train_dataset, val_dataset, test_dataset, balancing_weights

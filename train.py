@@ -4,7 +4,10 @@ import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchvision import transforms, models
-from torchmetrics import Metric, Accuracy
+from torchvision.models import ResNet
+from torchmetrics import Metric, Accuracy, CohenKappa, F1Score, AUROC
+
+from sklearn.metrics import confusion_matrix
 
 from data import OCTDLClass, load_octdl_dataset
 
@@ -27,30 +30,46 @@ def set_device():
     return device
 
 def print_stats(
-        metric_name: str,
-        metric_value: float, 
+        metric_names: list[str],
+        metric_values: list[float], 
         loss: float, 
-        val_metric_value: Optional[float], 
-        val_loss: Optional[float],
+        val_metric_values: Optional[list[float]] = None, 
+        val_loss: Optional[float] = None,
         replace_ln: bool = False
     ):
-    train_stats = f"{metric_name}: {metric_value:0.4f}, loss: {loss:0.4f}" 
+    assert (len(metric_names) == len(metric_values), 
+        "Metric names and values must have the same length.")
+    if val_metric_values is not None:
+        assert (len(metric_names) == len(val_metric_values), 
+                "Metric names and validation metric values must have the same length.")
+    
+    train_stats = ", ".join([f"{name}: {value:0.4f}" for name, value in zip(metric_names, metric_values)]) + ", "
+    train_stats += f"loss: {loss:0.4f}"
     message = train_stats
 
-    if val_metric_value is not None and val_loss is not None:
-        val_stats = f"val_{metric_name}: {val_metric_value:0.4f}, val_loss: {val_loss:0.4f}"
+    if val_metric_values is not None and val_loss is not None:
+        val_stats = ", ".join([f"val_{name}: {value:0.4f}" for name, value in zip(metric_names, val_metric_values)]) + ", "
+        val_stats += f"val_loss: {val_loss:0.4f}"
         message += " || " + val_stats
 
     print(
         message, 
-        end='\r' if replace_ln else None,
+        end='\r' if replace_ln else '\n',
         flush=replace_ln
     )
 
 
-def evaluate(model: nn.Module, data_loader: DataLoader, metric: Metric, device: torch.device):
+def evaluate(
+        model: nn.Module, 
+        data_loader: DataLoader, 
+        loss_fn,
+        metrics: list[Metric], 
+        device: torch.device
+    ):
     model.eval()
     running_loss = 0.0
+    all_preds = []
+    all_labels = []
 
     with torch.no_grad():
         for data in data_loader:
@@ -61,29 +80,45 @@ def evaluate(model: nn.Module, data_loader: DataLoader, metric: Metric, device: 
             outputs = model(images)
             _, preds = torch.max(outputs.data, 1)
             loss = loss_fn(outputs, labels)
-            running_loss += loss
-            metric.update(preds, labels)
+            running_loss += loss.item()
+
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+
+            for metric in metrics:
+                metric.update(preds, labels)
         
-        metric_value = metric.compute().item()
-        metric.reset()
+        computed_metrics = [metric.compute().item() for metric in metrics]
+        for metric in metrics:
+            metric.reset()
 
-    return metric_value, running_loss
+    cm = confusion_matrix(all_labels, all_preds)
 
+    return computed_metrics, running_loss, cm
 
 
 def train(
         model: nn.Module, 
+        epochs: int,
         train_loader: DataLoader, 
         val_loader: DataLoader, 
         loss_fn,
-        optimizer: optim.Optimizer,
-        metric: Metric,
-        metric_name,
-        epochs: int
+        optimizer: torch.optim.Optimizer,
+        metrics: list = [], 
+        metric_names: list[str] = [],
+        patience: int = 5
     ):
     device = set_device()
     model.to(device)
-    metric.to(device)
+    loss_fn.to(device)
+
+    for metric in metrics:
+        metric.to(device)
+
+    best_val_loss = float('inf')
+    best_model_weights = None
+    best_model_confusion_matrix = None
+    early_stopping_counter = 0
 
     for epoch in range(epochs):
         print(f"Epoch {epoch + 1}")
@@ -103,21 +138,101 @@ def train(
             optimizer.step()
 
             running_loss += loss.item()
-            metric_value = metric(preds, labels)
+            for metric in metrics:
+                metric.update(preds, labels)
 
-            print_stats(metric_name, metric_value.item(), running_loss, None, None, replace_ln=True)
+            train_metrics = [metric.compute().item() for metric in metrics]
+            print_stats(metric_names, train_metrics, running_loss, None, None, replace_ln=True)
         
-        metric_value = metric.compute().item()
-        metric.reset()
+        computed_metrics = [metric.compute().item() for metric in metrics]
+        for metric in metrics:
+            metric.reset()
 
-        val_metric_value, val_loss = evaluate(model, val_loader, metric, device)
+        val_metrics, val_loss, val_confusion_matrix = evaluate(model, val_loader, loss_fn, metrics, device)
+
+        yield val_loss
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_model_weights = model.state_dict()
+            best_model_confusion_matrix = val_confusion_matrix
+            early_stopping_counter = 0
+        else:
+            early_stopping_counter += 1
+        
         print_stats(
-            metric_name, 
-            metric_value, running_loss, 
-            val_metric_value, val_loss, 
+            metric_names, 
+            computed_metrics, running_loss, 
+            val_metrics, val_loss, 
             replace_ln=False
         )
 
+        if early_stopping_counter >= patience:
+            break
+    
+    if best_model_weights is not None:
+        model.load_state_dict(best_model_weights)
+
+    return best_val_loss, best_model_confusion_matrix
+
+
+
+def get_resnet(
+        num_classes: int = None, 
+        transfer_learning: bool = False, 
+        add_dense_layer: bool = False,
+        dense_layer_size: int = 256,
+        add_dropout_layer = False,
+        dropout = 0.5
+    ) -> ResNet:
+
+    weights = models.ResNet18_Weights.IMAGENET1K_V1 if transfer_learning else None
+    resnet18_model = models.resnet18(weights=weights)
+
+    if transfer_learning: 
+        for params in resnet18_model.parameters():
+            params.requires_grad = False
+
+    num_ftrs = resnet18_model.fc.in_features
+    additional_layers = nn.Sequential()
+
+    if add_dense_layer:
+        additional_layers.append(
+            nn.Sequential(
+                nn.Linear(num_ftrs, dense_layer_size),
+                nn.ReLU()
+            )
+        )
+        num_ftrs = dense_layer_size
+
+    if add_dropout_layer:
+        additional_layers.append(nn.Dropout(dropout))
+
+    additional_layers.append(nn.Linear(num_ftrs, num_classes))
+
+    resnet18_model.fc = additional_layers
+    return resnet18_model
+    
+
+def get_transforms(img_target_size: int):
+    mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
+
+    base_transform = transforms.Compose([
+        transforms.Resize((img_target_size, img_target_size)),
+        transforms.Normalize(mean=mean, std=std)
+    ])
+
+    augment_transform = transforms.Compose([
+        transforms.RandomResizedCrop(img_target_size, scale=(0.8, 1.0)),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(30),
+        transforms.RandomAffine(0, translate=(0.1, 0.1)),
+        transforms.GaussianBlur(kernel_size=(3, 5)),
+        transforms.Normalize(mean=mean, std=std),
+    ])
+
+    return base_transform, augment_transform
 
 if __name__ == "__main__":
     classes = [OCTDLClass.AMD, OCTDLClass.NO]
@@ -125,54 +240,57 @@ if __name__ == "__main__":
     image_size = 224
 
     batch_size = 32
-    learning_rate = 0.001
-    epochs = 10
+    learning_rate = 0.0005
+    epochs = 20
 
     mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
 
-    val_test_transform = transforms.Compose([
-        transforms.Resize((image_size, image_size)),
-        transforms.Normalize(mean=mean, std=std)
-    ])
+    val_test_transform, train_transform = get_transforms(image_size)
 
-    train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
-        transforms.Normalize(mean=mean, std=std),
-        transforms.RandomVerticalFlip(),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(30),
-        transforms.RandomAffine(0, translate=(0.1, 0.1)),
-        transforms.GaussianBlur(kernel_size=(3, 5))
-    ])
-
-    train_ds, val_ds, test_ds = load_octdl_dataset(
+    train_ds, val_ds, test_ds, balancing_weights = load_octdl_dataset(
         classes,
         train_transform,
         val_test_transform
     )
 
-    assert(isinstance(train_ds.__getitem__(0)[1], int))
-    print(len(train_ds.data))
-    print(len(val_ds.data))
-    print(len(test_ds.data))
-
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
-    weights = models.ResNet18_Weights.IMAGENET1K_V1 if transfer_learning else None
-    resnet18_model = models.resnet18(weights=weights, num_classes=len(classes))
-    num_ftrs = resnet18_model.fc.in_features
-    resnet18_model.fc = nn.Linear(num_ftrs, len(classes))
-
-    optimizer = optim.Adam(resnet18_model.parameters(), learning_rate)
-    metric = Accuracy(task="multiclass", num_classes=len(classes), average="macro")
-    loss_fn = nn.CrossEntropyLoss()
-
-    train(
-        resnet18_model, 
-        train_loader, val_loader, 
-        loss_fn, 
-        optimizer, 
-        metric, 'macro_accuracy', 
-        epochs
+    
+    model = get_resnet(
+        transfer_learning=False,
+        num_classes=len(classes),
+        add_dropout_layer=True,
+        dropout=0.2
     )
+
+    adam = optim.Adam(model.parameters(), learning_rate)
+    
+    balanced_accuracy = Accuracy(task="multiclass", num_classes=len(classes), average="macro")
+    cohen_kappa = CohenKappa(task="multiclass", num_classes=len(classes))
+    f1_score = F1Score(task="multiclass", num_classes=len(classes), average="macro")
+    roc_auc = AUROC(task="multiclass", num_classes=len(classes))
+
+    cross_entropy_loss = nn.CrossEntropyLoss()
+    weighted_cross_entropy_loss = nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
+
+
+    train_gen = train(
+        model, 
+        train_loader=train_loader, 
+        val_loader=val_loader, 
+        epochs=2,
+        optimizer=adam, 
+        loss_fn=weighted_cross_entropy_loss, 
+        metrics=[balanced_accuracy, f1_score], 
+        metric_names=['balanced_accuracy', 'f1-score'], 
+    )
+
+    while True:
+        try:
+            running_loss = next(train_gen)
+        except StopIteration as res:
+            best_val_loss, best_confusion_matrix = res.value
+            print(f"Best val loss: {best_val_loss}")
+            break
+        

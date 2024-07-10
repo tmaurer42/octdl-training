@@ -1,7 +1,6 @@
 import os
 from enum import Enum
 import functools
-from typing import List, Tuple, Dict
 
 import torch
 from torch.utils.data import Dataset
@@ -25,7 +24,7 @@ class OCTDLClass(Enum):
 
 
 class OCTDLDataset(Dataset):
-    def __init__(self, data, classes: List[str], transform=None):
+    def __init__(self, data, classes: list[str], transform=None):
         self.data = data
         self.transform = transform
         self.classes = classes
@@ -51,8 +50,8 @@ class OCTDLDataset(Dataset):
     
 
 def get_image_label_pairs(
-        patient_ids: List[np.int64], 
-        patient_to_images: Dict[np.int64, List[Tuple[str, str]]]
+        patient_ids: list[np.int64], 
+        patient_to_images: dict[np.int64, list[(str, str)]]
     ):
     return functools.reduce(
         lambda pairs, pid: pairs + patient_to_images[pid],
@@ -60,7 +59,7 @@ def get_image_label_pairs(
     )
 
 def load_octdl_dataset(
-        classes: List[OCTDLClass], 
+        classes: list[OCTDLClass], 
         train_transform: transforms.Compose,
         val_test_transform: transforms.Compose,
         ds_dir: str = './OCTDL', 
@@ -72,7 +71,7 @@ def load_octdl_dataset(
     labels_df = labels_df.query('disease in @labels')
 
     # map patient_id to (image_path, label) list
-    patient_to_images: Dict[np.int64, List[(str, str)]] = {} 
+    patient_to_images: dict[np.int64, list[(str, str)]] = {} 
     i = 0
     for label in labels:
         label_dir = os.path.join(ds_dir, label)

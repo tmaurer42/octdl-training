@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 import torch
 from torch import nn, optim
@@ -9,6 +9,9 @@ from sklearn.metrics import confusion_matrix
 
 from data import OCTDLClass, load_octdl_dataset
 from metrics import BalancedAccuracy, CategoricalMetric
+
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 
 
 def set_device():
@@ -29,10 +32,10 @@ def set_device():
     return device
 
 def print_stats(
-        metric_names: List[str],
-        metric_values: List[float], 
+        metric_names: list[str],
+        metric_values: list[float], 
         loss: float, 
-        val_metric_values: Optional[List[float]] = None, 
+        val_metric_values: Optional[list[float]] = None, 
         val_loss: Optional[float] = None,
         replace_ln: bool = False
     ):
@@ -60,7 +63,7 @@ def evaluate(
         model: nn.Module, 
         data_loader: DataLoader, 
         loss_fn,
-        metrics: List[CategoricalMetric], 
+        metrics: list[CategoricalMetric], 
         device: torch.device
     ):
     model.eval()
@@ -104,10 +107,11 @@ def train(
         val_loader: DataLoader, 
         loss_fn,
         optimizer: torch.optim.Optimizer,
-        metrics: List[CategoricalMetric] = [], 
-        metric_names: List[str] = [],
+        metrics: list[CategoricalMetric] = [], 
+        metric_names: list[str] = [],
         patience: int = 5,
-        from_epoch: int = 10
+        from_epoch: int = 10,
+        print_batch_info = True
     ):
     device = set_device()
     model.to(device)
@@ -144,7 +148,9 @@ def train(
                 metric.update(preds, labels)
 
             train_metrics = [metric.compute().item() for metric in metrics]
-            print_stats(metric_names, train_metrics, running_loss, None, None, replace_ln=True)
+
+            if print_batch_info:
+                print_stats(metric_names, train_metrics, running_loss, None, None, replace_ln=True)
         
         computed_metrics = [metric.compute().item() for metric in metrics]
         for metric in metrics:
@@ -190,7 +196,8 @@ def get_resnet(
         add_dropout_layer = False,
         dropout = 0.5
     ) -> models.ResNet:
-    resnet18_model = models.resnet18(pretrained=transfer_learning)
+    weights = models.resnet.ResNet18_Weights.IMAGENET1K_V1 if transfer_learning else None
+    resnet18_model = models.resnet18(weights=weights)
 
     if transfer_learning: 
         for params in resnet18_model.parameters():
@@ -244,8 +251,6 @@ if __name__ == "__main__":
     learning_rate = 0.0005
     epochs = 20
 
-    mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
-
     val_test_transform, train_transform = get_transforms(image_size)
 
     train_ds, val_ds, test_ds, balancing_weights = load_octdl_dataset(
@@ -253,6 +258,10 @@ if __name__ == "__main__":
         train_transform,
         val_test_transform
     )
+
+    #print(len(train_ds.data))
+    #print(len(val_ds.data))
+    #print(len(test_ds.data))
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
@@ -273,7 +282,7 @@ if __name__ == "__main__":
     #roc_auc = AUROC(task="multiclass", num_classes=len(classes))
 
     cross_entropy_loss = nn.CrossEntropyLoss()
-    weighted_cross_entropy_loss = nn.CrossEntropyLoss(weight=balancing_weights)
+    weighted_cross_entropy_loss = nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
 
 
     train_gen = train(
@@ -285,6 +294,7 @@ if __name__ == "__main__":
         loss_fn=weighted_cross_entropy_loss, 
         metrics=[balanced_accuracy], 
         metric_names=['balanced_accuracy'], 
+        print_batch_info=True
     )
 
     while True:

@@ -1,20 +1,19 @@
 import abc
-from typing import List
 
 from sklearn import metrics
 
 
 class CategoricalMetric(abc.ABC):
-    collected_values: List[float]
+    collected_values: list[float]
 
     def __init__(self):
         self.collected_values = []
 
     @abc.abstractmethod
-    def calculate_metric(self, predictions: List[int], targets: List[int]) -> float:
+    def calculate_metric(self, predictions: list[int], targets: list[int]) -> float:
         pass
 
-    def update(self, predictions: List[int], targets: List[int]):
+    def update(self, predictions: list[int], targets: list[int]):
         value = self.calculate_metric(predictions, targets)
         self.collected_values.append(value)
 
@@ -32,13 +31,13 @@ class BalancedAccuracy(CategoricalMetric):
     def __init__(self):
         super().__init__()
 
-    def calculate_metric(self, predictions: List[int], targets: List[int]) -> float:
+    def calculate_metric(self, predictions: list[int], targets: list[int]) -> float:
         return metrics.balanced_accuracy_score(targets, predictions)
     
 
-metric = BalancedAccuracy()
+class F1Score(CategoricalMetric):
+    def __init__(self):
+        super().__init__()
 
-metric.update([1, 0, 0], [1, 0, 0])
-metric.update([1, 0, 0], [1, 0, 1])
-
-print(metric.compute())
+    def calculate_metric(self, predictions: list[int], targets: list[int]) -> float:
+        return metrics.f1_score(targets, predictions, average="macro")

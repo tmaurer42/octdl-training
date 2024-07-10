@@ -8,9 +8,9 @@ import torch
 from torch import nn, optim
 from torchvision.models import ResNet
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy, F1Score
 
 from data import OCTDLClass, load_octdl_dataset
+from metrics import BalancedAccuracy
 from train import get_resnet, get_transforms, train
 
 STUDY_NAME = "resnet18_amd-no_weighted-loss"
@@ -29,8 +29,7 @@ def objective(trial: optuna.Trial):
     classes = [OCTDLClass.AMD, OCTDLClass.NO]
     transfer_learning = False
     image_size = 224
-    epochs = 50
-
+    epochs = 100
     batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
     learning_rate = trial.suggest_float("learning_rate", 0.0001, 0.1, log=True)
     apply_augmentation = trial.suggest_categorical("apply_augmentation", [True, False])
@@ -54,8 +53,7 @@ def objective(trial: optuna.Trial):
     adam = optim.Adam(model.parameters(), learning_rate)
     weighted_cross_entropy_loss = nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
 
-    balanced_accuracy = Accuracy(task="multiclass", num_classes=len(classes), average="macro")
-    f1_score = F1Score(task="multiclass", num_classes=len(classes), average="macro")
+    balanced_accuracy = BalancedAccuracy()
 
     train_gen = train(
         model, 
@@ -64,8 +62,8 @@ def objective(trial: optuna.Trial):
         epochs=epochs,
         optimizer=adam, 
         loss_fn=weighted_cross_entropy_loss, 
-        metrics=[balanced_accuracy, f1_score], 
-        metric_names=['balanced_accuracy', 'f1-score'], 
+        metrics=[balanced_accuracy], 
+        metric_names=['balanced_accuracy'], 
     )
 
     best_val_loss = None

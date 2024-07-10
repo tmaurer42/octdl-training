@@ -180,6 +180,9 @@ def train(
 
 
 
+import torch.nn as nn
+import torchvision.models as models
+
 def get_resnet(
         num_classes: int = None, 
         transfer_learning: bool = False, 
@@ -187,8 +190,7 @@ def get_resnet(
         dense_layer_size: int = 256,
         add_dropout_layer = False,
         dropout = 0.5
-    ) -> ResNet:
-    #weights = models.ResNet18_Weights.IMAGENET1K_V1 if transfer_learning else None
+    ) -> models.ResNet:
     resnet18_model = models.resnet18(pretrained=transfer_learning)
 
     if transfer_learning: 
@@ -196,25 +198,23 @@ def get_resnet(
             params.requires_grad = False
 
     num_ftrs = resnet18_model.fc.in_features
-    additional_layers = nn.Sequential()
+    layers = []
 
     if add_dense_layer:
-        additional_layers.append(
-            nn.Sequential(
-                nn.Linear(num_ftrs, dense_layer_size),
-                nn.ReLU()
-            )
-        )
+        layers.extend([
+            nn.Linear(num_ftrs, dense_layer_size),
+            nn.ReLU()
+        ])
         num_ftrs = dense_layer_size
 
     if add_dropout_layer:
-        additional_layers.append(nn.Dropout(dropout))
+        layers.append(nn.Dropout(dropout))
 
-    additional_layers.append(nn.Linear(num_ftrs, num_classes))
+    layers.append(nn.Linear(num_ftrs, num_classes))
 
-    resnet18_model.fc = additional_layers
+    resnet18_model.fc = nn.Sequential(*layers)
     return resnet18_model
-    
+
 
 def get_transforms(img_target_size: int):
     mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)

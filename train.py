@@ -4,7 +4,6 @@ import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchvision import transforms, models
-from torchvision.models import ResNet
 
 from sklearn.metrics import confusion_matrix
 
@@ -274,7 +273,7 @@ if __name__ == "__main__":
     #roc_auc = AUROC(task="multiclass", num_classes=len(classes))
 
     cross_entropy_loss = nn.CrossEntropyLoss()
-    weighted_cross_entropy_loss = nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
+    weighted_cross_entropy_loss = nn.CrossEntropyLoss(weight=balancing_weights)
 
 
     train_gen = train(

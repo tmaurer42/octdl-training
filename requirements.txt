@@ -1,4 +1,3 @@
-torchmetrics
 scikit-learn
 scikit-image
 pandas

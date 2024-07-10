@@ -5,11 +5,11 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchvision import transforms, models
 from torchvision.models import ResNet
-from torchmetrics import Metric, Accuracy, CohenKappa, F1Score, AUROC
 
 from sklearn.metrics import confusion_matrix
 
 from data import OCTDLClass, load_octdl_dataset
+from metrics import BalancedAccuracy, CategoricalMetric
 
 
 def set_device():
@@ -37,11 +37,9 @@ def print_stats(
         val_loss: Optional[float] = None,
         replace_ln: bool = False
     ):
-    assert (len(metric_names) == len(metric_values), 
-        "Metric names and values must have the same length.")
+    assert len(metric_names) == len(metric_values), "Metric names and values must have the same length."
     if val_metric_values is not None:
-        assert (len(metric_names) == len(val_metric_values), 
-                "Metric names and validation metric values must have the same length.")
+        assert len(metric_names) == len(val_metric_values), "Metric names and validation metric values must have the same length."
     
     train_stats = ", ".join([f"{name}: {value:0.4f}" for name, value in zip(metric_names, metric_values)]) + ", "
     train_stats += f"loss: {loss:0.4f}"
@@ -63,7 +61,7 @@ def evaluate(
         model: nn.Module, 
         data_loader: DataLoader, 
         loss_fn,
-        metrics: list[Metric], 
+        metrics: list[CategoricalMetric], 
         device: torch.device
     ):
     model.eval()
@@ -85,6 +83,9 @@ def evaluate(
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
 
+            if len(metrics) > 0:
+                preds = preds.cpu().numpy()
+                labels = labels.cpu().numpy()
             for metric in metrics:
                 metric.update(preds, labels)
         
@@ -104,16 +105,14 @@ def train(
         val_loader: DataLoader, 
         loss_fn,
         optimizer: torch.optim.Optimizer,
-        metrics: list = [], 
+        metrics: list[CategoricalMetric] = [], 
         metric_names: list[str] = [],
-        patience: int = 5
+        patience: int = 5,
+        from_epoch: int = 10
     ):
     device = set_device()
     model.to(device)
     loss_fn.to(device)
-
-    for metric in metrics:
-        metric.to(device)
 
     best_val_loss = float('inf')
     best_model_weights = None
@@ -138,6 +137,10 @@ def train(
             optimizer.step()
 
             running_loss += loss.item()
+
+            if len(metrics) > 0:
+                preds = preds.cpu().numpy()
+                labels = labels.cpu().numpy()
             for metric in metrics:
                 metric.update(preds, labels)
 
@@ -157,7 +160,7 @@ def train(
             best_model_weights = model.state_dict()
             best_model_confusion_matrix = val_confusion_matrix
             early_stopping_counter = 0
-        else:
+        elif epoch >= from_epoch:
             early_stopping_counter += 1
         
         print_stats(
@@ -266,10 +269,10 @@ if __name__ == "__main__":
 
     adam = optim.Adam(model.parameters(), learning_rate)
     
-    balanced_accuracy = Accuracy(task="multiclass", num_classes=len(classes), average="macro")
-    cohen_kappa = CohenKappa(task="multiclass", num_classes=len(classes))
-    f1_score = F1Score(task="multiclass", num_classes=len(classes), average="macro")
-    roc_auc = AUROC(task="multiclass", num_classes=len(classes))
+    balanced_accuracy = BalancedAccuracy()
+    #cohen_kappa = CohenKappa(task="multiclass", num_classes=len(classes))
+    #f1_score = F1Score(task="multiclass", num_classes=len(classes), average="macro")
+    #roc_auc = AUROC(task="multiclass", num_classes=len(classes))
 
     cross_entropy_loss = nn.CrossEntropyLoss()
     weighted_cross_entropy_loss = nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
@@ -279,11 +282,11 @@ if __name__ == "__main__":
         model, 
         train_loader=train_loader, 
         val_loader=val_loader, 
-        epochs=2,
+        epochs=epochs,
         optimizer=adam, 
         loss_fn=weighted_cross_entropy_loss, 
-        metrics=[balanced_accuracy, f1_score], 
-        metric_names=['balanced_accuracy', 'f1-score'], 
+        metrics=[balanced_accuracy], 
+        metric_names=['balanced_accuracy'], 
     )
 
     while True:

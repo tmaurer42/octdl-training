@@ -5,7 +5,7 @@ import functools
 import torch
 from torch.utils.data import Dataset
 from torchvision import io, transforms
-from torchvision.io import ImageReadMode
+from torchvision.io.image import ImageReadMode
 import torchvision.transforms.functional as F
 
 import pandas as pd

@@ -188,9 +188,8 @@ def get_resnet(
         add_dropout_layer = False,
         dropout = 0.5
     ) -> ResNet:
-
-    weights = models.ResNet18_Weights.IMAGENET1K_V1 if transfer_learning else None
-    resnet18_model = models.resnet18(weights=weights)
+    #weights = models.ResNet18_Weights.IMAGENET1K_V1 if transfer_learning else None
+    resnet18_model = models.resnet18(pretrained=transfer_learning)
 
     if transfer_learning: 
         for params in resnet18_model.parameters():

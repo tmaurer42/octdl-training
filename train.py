@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 import torch
 from torch import nn, optim
@@ -30,10 +30,10 @@ def set_device():
     return device
 
 def print_stats(
-        metric_names: list[str],
-        metric_values: list[float], 
+        metric_names: List[str],
+        metric_values: List[float], 
         loss: float, 
-        val_metric_values: Optional[list[float]] = None, 
+        val_metric_values: Optional[List[float]] = None, 
         val_loss: Optional[float] = None,
         replace_ln: bool = False
     ):
@@ -61,7 +61,7 @@ def evaluate(
         model: nn.Module, 
         data_loader: DataLoader, 
         loss_fn,
-        metrics: list[CategoricalMetric], 
+        metrics: List[CategoricalMetric], 
         device: torch.device
     ):
     model.eval()
@@ -105,8 +105,8 @@ def train(
         val_loader: DataLoader, 
         loss_fn,
         optimizer: torch.optim.Optimizer,
-        metrics: list[CategoricalMetric] = [], 
-        metric_names: list[str] = [],
+        metrics: List[CategoricalMetric] = [], 
+        metric_names: List[str] = [],
         patience: int = 5,
         from_epoch: int = 10
     ):

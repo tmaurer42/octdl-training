@@ -151,10 +151,6 @@ def main():
         [OCTDLClass.AMD, OCTDLClass.NO]
     ]
     models = ["ResNet18"]
-    loss_fns = [
-        nn.CrossEntropyLoss(),
-        nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
-    ]
 
     for class_list in use_cases:
         train_data, val_data, test_data, balancing_weights = load_octdl_data(
@@ -163,6 +159,10 @@ def main():
         for model_type in models:
             for transfer_learning in [False, True]:
                 studies: list[optuna.Study] = []
+                loss_fns = [
+                    nn.CrossEntropyLoss(),
+                    nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
+                ]
                 for loss_fn in loss_fns:
                     study_name = get_study_name(class_list, model_type, transfer_learning, loss_fn)
                     study = run_study(

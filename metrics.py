@@ -4,6 +4,9 @@ from sklearn import metrics
 
 
 class CategoricalMetric(abc.ABC):
+    """
+    Base class similar to torchmetrics to wrap sklearn metrics.
+    """
     collected_values: list[float]
 
     def __init__(self):
@@ -28,6 +31,9 @@ class CategoricalMetric(abc.ABC):
     
 
 class BalancedAccuracy(CategoricalMetric):
+    """
+    Metric class to compute the balanced accuarcy score from sklearn
+    """
     def __init__(self):
         super().__init__()
 
@@ -35,7 +41,10 @@ class BalancedAccuracy(CategoricalMetric):
         return metrics.balanced_accuracy_score(targets, predictions)
     
 
-class F1Score(CategoricalMetric):
+class F1ScoreMacro(CategoricalMetric):
+    """
+    Metric class to compute the F1 score with macro average from sklearn
+    """
     def __init__(self):
         super().__init__()
 

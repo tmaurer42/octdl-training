@@ -1,20 +1,25 @@
 from typing import Optional
 
 import torch
-from torch import nn, optim
+from torch import nn
 from torch.utils.data import DataLoader
-from torchvision import transforms, models
-
+from torchvision import transforms
 from sklearn.metrics import confusion_matrix
 
-from data import OCTDLClass, load_octdl_dataset
-from metrics import BalancedAccuracy, CategoricalMetric
+from metrics import CategoricalMetric
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
 def set_device():
+    """
+    Set the computing device to GPU (CUDA), 
+    MPS (Mac M1-M3 GPU), or CPU based on availability.
+
+    Returns:
+        torch.device: The selected device.
+    """
     if torch.cuda.is_available():
         dev = 'cuda:0'
     elif torch.backends.mps.is_available():
@@ -39,6 +44,17 @@ def print_stats(
         val_loss: Optional[float] = None,
         replace_ln: bool = False
     ):
+    """
+    Print training and validation statistics.
+
+    Parameters:
+        metric_names (list[str]): List of metric names.
+        metric_values (list[float]): List of training metric values.
+        loss (float): Training loss value.
+        val_metric_values (Optional[list[float]]): List of validation metric values. Default is None.
+        val_loss (Optional[float]): Validation loss value. Default is None.
+        replace_ln (bool): If True, replace the last printed line. Default is False.
+    """
     assert len(metric_names) == len(metric_values), "Metric names and values must have the same length."
     if val_metric_values is not None:
         assert len(metric_names) == len(val_metric_values), "Metric names and validation metric values must have the same length."
@@ -66,6 +82,19 @@ def evaluate(
         metrics: list[CategoricalMetric], 
         device: torch.device
     ):
+    """
+    Evaluate the model on the given data loader.
+
+    Parameters:
+        model (nn.Module): The model to evaluate.
+        data_loader (DataLoader): DataLoader for the evaluation dataset.
+        loss_fn: Loss function.
+        metrics (List[CategoricalMetric]): List of metrics to compute.
+        device (torch.device): Device to run the evaluation on.
+
+    Returns:
+        tuple: (computed_metrics, running_loss, confusion_matrix)
+    """
     model.eval()
     running_loss = 0.0
     all_preds = []
@@ -113,11 +142,43 @@ def train(
         from_epoch: int = 10,
         print_batch_info = True
     ):
+    """
+    Train the model with early stopping based on validation loss.
+
+    Parameters:
+        model (nn.Module): The model to train.
+        epochs (int): Number of epochs to train.
+        train_loader (DataLoader): DataLoader for the training dataset.
+        val_loader (DataLoader): DataLoader for the validation dataset.
+        loss_fn: Loss function.
+        optimizer (torch.optim.Optimizer): Optimizer for updating the model parameters.
+        metrics (List[CategoricalMetric]): List of metrics to compute during training. Default is an empty list.
+        metric_names (List[str]): List of metric names corresponding to the metrics. Default is an empty list.
+        patience (int): Number of epochs to wait for improvement in validation loss before stopping. Default is 5.
+        from_epoch (int): Number of epochs after which to start early stopping. Default is 10.
+        print_batch_info (bool): If True, print batch information during training. Default is True.
+
+        
+
+    Returns:
+        A generator yielding the validation loss after each epoch.
+        After the last epoch returns
+        tuple: (best_val_loss, best_model_confusion_matrix, best_model_metrics)
+
+    Example::
+        while True:
+            try:
+                running_loss = next(train_gen)
+            except StopIteration as res:
+                best_val_loss, best_confusion_matrix, best_model_metrics = res.value
+    """
+
     device = set_device()
     model.to(device)
     loss_fn.to(device)
 
     best_val_loss = float('inf')
+    best_model_metrics = []
     best_model_weights = None
     best_model_confusion_matrix = None
     early_stopping_counter = 0
@@ -164,6 +225,7 @@ def train(
             best_val_loss = val_loss
             best_model_weights = model.state_dict()
             best_model_confusion_matrix = val_confusion_matrix
+            best_model_metrics = computed_metrics
             early_stopping_counter = 0
         elif epoch >= from_epoch:
             early_stopping_counter += 1
@@ -181,48 +243,21 @@ def train(
     if best_model_weights is not None:
         model.load_state_dict(best_model_weights)
 
-    return best_val_loss, best_model_confusion_matrix
-
-
-
-import torch.nn as nn
-import torchvision.models as models
-
-def get_resnet(
-        num_classes: int = None, 
-        transfer_learning: bool = False, 
-        add_dense_layer: bool = False,
-        dense_layer_size: int = 256,
-        add_dropout_layer = False,
-        dropout = 0.5
-    ) -> models.ResNet:
-    weights = models.resnet.ResNet18_Weights.IMAGENET1K_V1 if transfer_learning else None
-    resnet18_model = models.resnet18(weights=weights)
-
-    if transfer_learning: 
-        for params in resnet18_model.parameters():
-            params.requires_grad = False
-
-    num_ftrs = resnet18_model.fc.in_features
-    layers = []
-
-    if add_dense_layer:
-        layers.extend([
-            nn.Linear(num_ftrs, dense_layer_size),
-            nn.ReLU()
-        ])
-        num_ftrs = dense_layer_size
-
-    if add_dropout_layer:
-        layers.append(nn.Dropout(dropout))
-
-    layers.append(nn.Linear(num_ftrs, num_classes))
-
-    resnet18_model.fc = nn.Sequential(*layers)
-    return resnet18_model
+    return best_val_loss, best_model_confusion_matrix, best_model_metrics
 
 
 def get_transforms(img_target_size: int):
+    """
+    Get base and augmentation transforms for image preprocessing.
+    Images will be of size (img_target_size, img_target_size) after the transforms
+    and their pixel values normalized between -1 and 1.
+
+    Parameters:
+        img_target_size (int): Target size for image resizing.
+
+    Returns:
+        tuple: (base_transform, augment_transform)
+    """
     mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
 
     base_transform = transforms.Compose([
@@ -234,74 +269,10 @@ def get_transforms(img_target_size: int):
         transforms.RandomResizedCrop(img_target_size, scale=(0.8, 1.0)),
         transforms.RandomVerticalFlip(),
         transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(30),
+        transforms.RandomRotation(10),
         transforms.RandomAffine(0, translate=(0.1, 0.1)),
         transforms.GaussianBlur(kernel_size=(3, 5)),
         transforms.Normalize(mean=mean, std=std),
     ])
 
     return base_transform, augment_transform
-
-if __name__ == "__main__":
-    classes = [OCTDLClass.AMD, OCTDLClass.NO]
-    transfer_learning = False
-    image_size = 224
-
-    batch_size = 32
-    learning_rate = 0.0005
-    epochs = 20
-
-    val_test_transform, train_transform = get_transforms(image_size)
-
-    train_ds, val_ds, test_ds, balancing_weights = load_octdl_dataset(
-        classes,
-        train_transform,
-        val_test_transform
-    )
-
-    #print(len(train_ds.data))
-    #print(len(val_ds.data))
-    #print(len(test_ds.data))
-
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
-
-    
-    model = get_resnet(
-        transfer_learning=False,
-        num_classes=len(classes),
-        add_dropout_layer=True,
-        dropout=0.2
-    )
-
-    adam = optim.Adam(model.parameters(), learning_rate)
-    
-    balanced_accuracy = BalancedAccuracy()
-    #cohen_kappa = CohenKappa(task="multiclass", num_classes=len(classes))
-    #f1_score = F1Score(task="multiclass", num_classes=len(classes), average="macro")
-    #roc_auc = AUROC(task="multiclass", num_classes=len(classes))
-
-    cross_entropy_loss = nn.CrossEntropyLoss()
-    weighted_cross_entropy_loss = nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
-
-
-    train_gen = train(
-        model, 
-        train_loader=train_loader, 
-        val_loader=val_loader, 
-        epochs=epochs,
-        optimizer=adam, 
-        loss_fn=weighted_cross_entropy_loss, 
-        metrics=[balanced_accuracy], 
-        metric_names=['balanced_accuracy'], 
-        print_batch_info=True
-    )
-
-    while True:
-        try:
-            running_loss = next(train_gen)
-        except StopIteration as res:
-            best_val_loss, best_confusion_matrix = res.value
-            print(f"Best val loss: {best_val_loss}")
-            break
-        

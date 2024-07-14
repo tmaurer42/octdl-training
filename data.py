@@ -4,7 +4,7 @@ import functools
 
 import torch
 from torch.utils.data import Dataset
-from torchvision import io, transforms
+from torchvision import io
 from torchvision.io.image import ImageReadMode
 import torchvision.transforms.functional as F
 
@@ -24,10 +24,22 @@ class OCTDLClass(Enum):
 
 
 class OCTDLDataset(Dataset):
-    def __init__(self, data, classes: list[str], transform=None):
+    """
+    A PyTorch Dataset for the OCTDL dataset.
+
+    Parameters:
+        data (list[tuple]): 
+            List of tuples containing an image-path and a label.
+        classes (list[str]): 
+            List of classes in the dataset. 
+            The categorical labels will be assigned in the order of the list,
+            e.g. [OCTDLClass.AMD, OCTDLClass.NO] -> AMD: 0, NO: 1.
+        transform (callable, optional): Optional transform to be applied to a sample.
+    """
+    def __init__(self, data: list[tuple[str, str]], classes: list[OCTDLClass], transform=None):
         self.data = data
         self.transform = transform
-        self.classes = classes
+        self.classes = [cls.name for cls in classes]
         self.class_to_index = {cls: i for i, cls in enumerate(self.classes)}
 
         print("OCTDL Dataset initialized, "
@@ -38,8 +50,9 @@ class OCTDLDataset(Dataset):
 
     def __getitem__(self, idx):
         image_file, label = self.data[idx]
-        # Convert to grayscale
         image = io.read_image(image_file, mode=ImageReadMode.RGB)
+        # Convert to grayscale with three output channels 
+        # for transfer-learning compatability
         image = F.rgb_to_grayscale(image, num_output_channels=3)
         image = F.convert_image_dtype(image)
         if self.transform:
@@ -50,21 +63,51 @@ class OCTDLDataset(Dataset):
     
 
 def get_image_label_pairs(
-        patient_ids: list[np.int64], 
-        patient_to_images: dict[np.int64, list[(str, str)]]
-    ):
+        ids: list[np.int64], 
+        id_to_images: dict[np.int64, list[(str, str)]]
+    ) -> list[(str, str)]:
+    """
+    Get a list of image-label pairs from a list of IDs and a dictionary mapping IDs to image-label pairs.
+    
+    Parameters:
+
+        ids (list[np.int64]): 
+            A list of IDs.
+
+        id_to_images (dict[np.int64, list[(str, str)]]): 
+            A dictionary where keys are IDs and values are lists of tuples with image-path and label.
+    
+    Returns:
+        list[(str, str)]: A list of tuples of image-path and label.
+    """
     return functools.reduce(
-        lambda pairs, pid: pairs + patient_to_images[pid],
-        patient_ids, []
+        lambda pairs, pid: pairs + id_to_images[pid],
+        ids, []
     )
 
-def load_octdl_dataset(
+def load_octdl_data(
         classes: list[OCTDLClass], 
-        train_transform: transforms.Compose,
-        val_test_transform: transforms.Compose,
         ds_dir: str = './OCTDL', 
         labels_file: str = './OCTDL_labels.csv'
     ):
+    """
+    Load OCTDL dataset containing the given classes,
+    split into train, validation, and test sets, 
+    and compute balancing weights.
+    The data is split such that each patient's data is
+    present in only one of the sets.
+    
+    Parameters:
+        classes (list[OCTDLClass]): 
+            The classes to load.
+        ds_dir (str): 
+            Directory containing the dataset. Default is './OCTDL'.
+        labels_file (str): 
+            Path to the labels CSV file. Default is './OCTDL_labels.csv'.
+    
+    Returns:
+        Tuple containing: (train_data, val_data, test_data, balancing_weights)
+    """
     labels = [cls.name for cls in classes]
     
     labels_df = pd.read_csv(labels_file)
@@ -100,12 +143,8 @@ def load_octdl_dataset(
     val_data = get_image_label_pairs(val_ids, patient_to_images)
     test_data = get_image_label_pairs(test_ids, patient_to_images)
 
-    train_dataset = OCTDLDataset(train_data, labels, transform=train_transform)
-    val_dataset = OCTDLDataset(val_data, labels, transform=val_test_transform)
-    test_dataset = OCTDLDataset(test_data, labels, transform=val_test_transform)
-
+    # Compute balancing weights according to the distribution in the whole dataset
     all_labels = labels_df['disease'].to_list()
-
     balancing_weights = []
     for cls in classes:
         num_cls_labels = len([l for l in all_labels if l == cls.name])
@@ -113,4 +152,4 @@ def load_octdl_dataset(
 
     balancing_weights = torch.Tensor(balancing_weights)
 
-    return train_dataset, val_dataset, test_dataset, balancing_weights
+    return train_data, val_data, test_data, balancing_weights

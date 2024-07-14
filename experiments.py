@@ -181,6 +181,10 @@ def main():
                 
                 for study in studies:
                     best_metrics = study.best_trial.user_attrs('metrics')
+
+
+if __name__ == "__main__":
+    main()
                     
 
 

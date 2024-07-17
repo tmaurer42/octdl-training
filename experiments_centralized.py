@@ -7,7 +7,7 @@ from torch import nn, optim
 from torchvision.models import ResNet
 from torch.utils.data import DataLoader
 
-from shared.data import OCTDLClass, OCTDLDataset, load_octdl_data, get_transforms
+from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms
 from shared.metrics import BalancedAccuracy, F1ScoreMacro, CategoricalMetric
 from train_centralized import train
 from shared.model import get_efficientnet, get_resnet, get_mobilenet
@@ -166,9 +166,10 @@ def main():
     models = ["ResNet18"]
 
     for class_list in use_cases:
-        train_data, val_data, test_data, balancing_weights = load_octdl_data(
+        train_data, val_data, test_data = load_octdl_data(
             class_list
         )
+        balancing_weights = get_balancing_weights(class_list)
         for model_type in models:
             for transfer_learning in [False, True]:
                 studies: list[optuna.Study] = []

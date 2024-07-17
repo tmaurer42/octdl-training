@@ -95,8 +95,7 @@ def load_octdl_data(
 ):
     """
     Load OCTDL dataset containing the given classes,
-    split into train, validation, and test sets, 
-    and compute balancing weights.
+    split into train, validation, and test sets.
     The data is split such that each patient's data is
     present in only one of the sets.
 
@@ -109,7 +108,7 @@ def load_octdl_data(
             Path to the labels CSV file. Default is './OCTDL_labels.csv'.
 
     Returns:
-        Tuple containing: (train_data, val_data, test_data, balancing_weights)
+        Tuple containing: (train_data, val_data, test_data)
     """
     labels = [cls.name for cls in classes]
 
@@ -146,7 +145,17 @@ def load_octdl_data(
     val_data = _get_image_label_pairs(val_ids, patient_to_images)
     test_data = _get_image_label_pairs(test_ids, patient_to_images)
 
-    # Compute balancing weights according to the distribution in the whole dataset
+    return train_data, val_data, test_data
+
+
+def get_balancing_weights(
+    classes: list[OCTDLClass],
+    ds_dir: str = './OCTDL',
+    labels_file: str = 'OCTDL_labels.csv'
+):
+    labels_df = pd.read_csv(os.path.join(ds_dir, labels_file))
+    labels_df = labels_df.query('disease in @labels')
+
     all_labels = labels_df['disease'].to_list()
     balancing_weights = []
     for cls in classes:
@@ -154,8 +163,6 @@ def load_octdl_data(
         balancing_weights.append(len(all_labels) / num_cls_labels)
 
     balancing_weights = torch.Tensor(balancing_weights)
-
-    return train_data, val_data, test_data, balancing_weights
 
 
 def get_transforms(img_target_size: int):

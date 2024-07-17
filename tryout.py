@@ -1,14 +1,17 @@
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from shared.data import OCTDLClass, OCTDLDataset, load_octdl_data, get_transforms
+from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms
 from shared.metrics import BalancedAccuracy, F1ScoreMacro
 from shared.model import get_efficientnet
 from train_centralized import train
 
 if __name__ == "__main__":
     classes = [OCTDLClass.AMD, OCTDLClass.NO]
-    train_data, val_data, test_data, balancing_weights = load_octdl_data(
+    train_data, val_data, test_data = load_octdl_data(
+        classes
+    )
+    balancing_weight = get_balancing_weights(
         classes
     )
     metrics = [BalancedAccuracy(),  F1ScoreMacro()]

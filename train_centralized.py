@@ -29,20 +29,21 @@ def set_device():
                   "built with MPS enabled.")
     else:
         dev = "cpu"
-            
+
     print(f"Using device {dev}")
     device = torch.device(dev)
-            
+
     return device
 
+
 def print_stats(
-        metric_names: list[str],
-        metric_values: list[float], 
-        loss: float, 
-        val_metric_values: Optional[list[float]] = None, 
-        val_loss: Optional[float] = None,
-        replace_ln: bool = False
-    ):
+    metric_names: list[str],
+    metric_values: list[float],
+    loss: float,
+    val_metric_values: Optional[list[float]] = None,
+    val_loss: Optional[float] = None,
+    replace_ln: bool = False
+):
     """
     Print training and validation statistics.
 
@@ -54,33 +55,37 @@ def print_stats(
         val_loss (Optional[float]): Validation loss value. Default is None.
         replace_ln (bool): If True, replace the last printed line. Default is False.
     """
-    assert len(metric_names) == len(metric_values), "Metric names and values must have the same length."
+    assert len(metric_names) == len(
+        metric_values), "Metric names and values must have the same length."
     if val_metric_values is not None:
-        assert len(metric_names) == len(val_metric_values), "Metric names and validation metric values must have the same length."
-    
-    train_stats = ", ".join([f"{name}: {value:0.4f}" for name, value in zip(metric_names, metric_values)]) + ", "
+        assert len(metric_names) == len(
+            val_metric_values), "Metric names and validation metric values must have the same length."
+
+    train_stats = ", ".join([f"{name}: {value:0.4f}" for name, value in zip(
+        metric_names, metric_values)]) + ", "
     train_stats += f"loss: {loss:0.4f}"
     message = train_stats
 
     if val_metric_values is not None and val_loss is not None:
-        val_stats = ", ".join([f"val_{name}: {value:0.4f}" for name, value in zip(metric_names, val_metric_values)]) + ", "
+        val_stats = ", ".join([f"val_{name}: {value:0.4f}" for name, value in zip(
+            metric_names, val_metric_values)]) + ", "
         val_stats += f"val_loss: {val_loss:0.4f}"
         message += " || " + val_stats
 
     print(
-        message, 
+        message,
         end='\r' if replace_ln else '\n',
         flush=replace_ln
     )
 
 
 def evaluate(
-        model: nn.Module, 
-        data_loader: DataLoader, 
-        loss_fn,
-        metrics: list[CategoricalMetric], 
-        device: torch.device
-    ):
+    model: nn.Module,
+    data_loader: DataLoader,
+    loss_fn,
+    metrics: list[CategoricalMetric],
+    device: torch.device
+):
     """
     Evaluate the model on the given data loader.
 
@@ -118,7 +123,7 @@ def evaluate(
                 labels = labels.cpu().numpy()
             for metric in metrics:
                 metric.update(preds, labels)
-        
+
         computed_metrics = [metric.compute().item() for metric in metrics]
         for metric in metrics:
             metric.reset()
@@ -129,18 +134,18 @@ def evaluate(
 
 
 def train(
-        model: nn.Module, 
-        epochs: int,
-        train_loader: DataLoader, 
-        val_loader: DataLoader, 
-        loss_fn,
-        optimizer: torch.optim.Optimizer,
-        metrics: list[CategoricalMetric] = [], 
-        metric_names: list[str] = [],
-        patience: int = 5,
-        from_epoch: int = 10,
-        print_batch_info = True
-    ):
+    model: nn.Module,
+    epochs: int,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    loss_fn,
+    optimizer: torch.optim.Optimizer,
+    metrics: list[CategoricalMetric] = [],
+    metric_names: list[str] = [],
+    patience: int = 5,
+    from_epoch: int = 10,
+    print_batch_info=True
+):
     """
     Train the model with early stopping based on validation loss.
 
@@ -157,7 +162,7 @@ def train(
         from_epoch (int): Number of epochs after which to start early stopping. Default is 10.
         print_batch_info (bool): If True, print batch information during training. Default is True.
 
-        
+
 
     Returns:
         A generator yielding the validation loss after each epoch.
@@ -210,13 +215,15 @@ def train(
             train_metrics = [metric.compute().item() for metric in metrics]
 
             if print_batch_info:
-                print_stats(metric_names, train_metrics, running_loss, None, None, replace_ln=True)
-        
+                print_stats(metric_names, train_metrics,
+                            running_loss, None, None, replace_ln=True)
+
         computed_metrics = [metric.compute().item() for metric in metrics]
         for metric in metrics:
             metric.reset()
 
-        val_metrics, val_loss, val_confusion_matrix = evaluate(model, val_loader, loss_fn, metrics, device)
+        val_metrics, val_loss, val_confusion_matrix = evaluate(
+            model, val_loader, loss_fn, metrics, device)
 
         yield val_loss
 
@@ -228,17 +235,17 @@ def train(
             early_stopping_counter = 0
         elif epoch >= from_epoch:
             early_stopping_counter += 1
-        
+
         print_stats(
-            metric_names, 
-            computed_metrics, running_loss, 
-            val_metrics, val_loss, 
+            metric_names,
+            computed_metrics, running_loss,
+            val_metrics, val_loss,
             replace_ln=False
         )
 
         if early_stopping_counter >= patience:
             break
-    
+
     if best_model_weights is not None:
         model.load_state_dict(best_model_weights)
 

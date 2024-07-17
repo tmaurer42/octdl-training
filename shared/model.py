@@ -3,10 +3,10 @@ from torchvision import models
 
 
 def get_resnet(
-        num_classes: int, 
-        transfer_learning: bool = False, 
-        dropout = 0.2
-    ) -> models.ResNet:
+    num_classes: int,
+    transfer_learning: bool = False,
+    dropout=0.2
+) -> models.ResNet:
     """
     Load and initialize a pytorch ResNet18 model.
 
@@ -35,7 +35,7 @@ def get_resnet(
     last_layer_input_size = resnet18_model.fc.in_features
     layers = []
 
-    if transfer_learning: 
+    if transfer_learning:
         for params in resnet18_model.parameters():
             params.requires_grad = False
 
@@ -61,10 +61,10 @@ def get_resnet(
 
 
 def get_mobilenet(
-        num_classes: int, 
-        transfer_learning: bool = False,
-        dropout = 0.2
-    ) -> models.MobileNetV2:
+    num_classes: int,
+    transfer_learning: bool = False,
+    dropout=0.2
+) -> models.MobileNetV2:
     """
     Load and initialize a pytorch MobileNetV2 model.
 
@@ -91,7 +91,7 @@ def get_mobilenet(
     last_layer_input_size = mobilenetv2_model.last_channel
     layers = []
 
-    if transfer_learning: 
+    if transfer_learning:
         for params in mobilenetv2_model.parameters():
             params.requires_grad = False
 
@@ -116,10 +116,10 @@ def get_mobilenet(
 
 
 def get_efficientnet(
-        num_classes: int, 
-        transfer_learning: bool = False,
-        dropout = 0.2
-    ) -> models.EfficientNet:
+    num_classes: int,
+    transfer_learning: bool = False,
+    dropout=0.2
+) -> models.EfficientNet:
     """
     Load and initialize a pytorch EfficientNet_V2_S model.
 
@@ -147,7 +147,7 @@ def get_efficientnet(
 
     layers = []
 
-    if transfer_learning: 
+    if transfer_learning:
         for params in efficientnet_model.parameters():
             params.requires_grad = False
 

@@ -34,38 +34,42 @@ def save_weights(study_name: str, model: ResNet, trial_number):
 
 
 def run_study(
-        study_name: str,
-        model_type: ModelType,
-        train_data: list,
-        val_data: list,
-        transfer_learning: bool,
-        classes: list[OCTDLClass], 
-        loss_fn: nn.CrossEntropyLoss,
-        metrics: list[CategoricalMetric],
-        metric_names: list[str],
-        n_trials: int = 100
-    ):
+    study_name: str,
+    model_type: ModelType,
+    train_data: list,
+    val_data: list,
+    transfer_learning: bool,
+    classes: list[OCTDLClass],
+    loss_fn: nn.CrossEntropyLoss,
+    metrics: list[CategoricalMetric],
+    metric_names: list[str],
+    n_trials: int = 100
+):
 
     def objective(trial: optuna.Trial):
         image_size = 224
         epochs = 100
 
         # Tunable Hyperparameters
-        batch_size = trial.suggest_categorical("batch_size", [8, 16, 32, 64, 128])
-        learning_rate = trial.suggest_float("learning_rate", 0.0001, 0.1, log=True)
-        apply_augmentation = trial.suggest_categorical("apply_augmentation", [True, False])
+        batch_size = trial.suggest_categorical(
+            "batch_size", [8, 16, 32, 64, 128])
+        learning_rate = trial.suggest_float(
+            "learning_rate", 0.0001, 0.1, log=True)
+        apply_augmentation = trial.suggest_categorical(
+            "apply_augmentation", [True, False])
         dropout = trial.suggest_float("dropout", 0.0, 0.5, step=0.1)
 
         # Initialize data
         base_transform, train_transform = get_transforms(image_size)
         train_ds = OCTDLDataset(
-            train_data, 
-            classes, 
+            train_data,
+            classes,
             transform=train_transform if apply_augmentation else base_transform
         )
         val_ds = OCTDLDataset(val_data, classes, transform=base_transform)
-    
-        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+
+        train_loader = DataLoader(
+            train_ds, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
         # Initialize model
@@ -92,14 +96,14 @@ def run_study(
         adam = optim.Adam(model.parameters(), learning_rate)
 
         train_gen = train(
-            model, 
-            train_loader=train_loader, 
-            val_loader=val_loader, 
+            model,
+            train_loader=train_loader,
+            val_loader=val_loader,
             epochs=epochs,
-            optimizer=adam, 
-            loss_fn=loss_fn, 
-            metrics=metrics, 
-            metric_names=metric_names, 
+            optimizer=adam,
+            loss_fn=loss_fn,
+            metrics=metrics,
+            metric_names=metric_names,
             patience=5,
             from_epoch=20
         )
@@ -116,8 +120,10 @@ def run_study(
                 best_val_loss, best_confusion_matrix, best_model_metrics = res.value
 
                 # Set confusion_matrix and metrics in the trial to see it in the dashboard
-                trial.set_user_attr('best_confusion_matrix', best_confusion_matrix.tolist())
-                metrics_dict =  {f"val_{name}": value for name, value in zip(metric_names, best_model_metrics)}
+                trial.set_user_attr('best_confusion_matrix',
+                                    best_confusion_matrix.tolist())
+                metrics_dict = {f"val_{name}": value for name,
+                                value in zip(metric_names, best_model_metrics)}
                 trial.set_user_attr('best_model_metrics', metrics_dict)
 
                 # Save the weights for testing the model
@@ -138,11 +144,11 @@ def run_study(
 
 
 def get_study_name(
-        classes: list[OCTDLClass], 
-        model: ModelType, 
-        transfer_learning: bool,
-        loss: nn.CrossEntropyLoss
-    ):
+    classes: list[OCTDLClass],
+    model: ModelType,
+    transfer_learning: bool,
+    loss: nn.CrossEntropyLoss
+):
     classes_str = f"({', '.join([cls.name for cls in classes])})"
     transfer_learning_str = "transfer" if transfer_learning else "no transfer"
     loss_str = "WeightedCrossEntropy" if loss.weight is not None else "CrossEntropy"
@@ -168,10 +174,12 @@ def main():
                 studies: list[optuna.Study] = []
                 loss_fns = [
                     nn.CrossEntropyLoss(),
-                    nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
+                    nn.CrossEntropyLoss(
+                        weight=balancing_weights, label_smoothing=0.1)
                 ]
                 for loss_fn in loss_fns:
-                    study_name = get_study_name(class_list, model_type, transfer_learning, loss_fn)
+                    study_name = get_study_name(
+                        class_list, model_type, transfer_learning, loss_fn)
                     study = run_study(
                         study_name=study_name,
                         classes=class_list,
@@ -185,14 +193,10 @@ def main():
                         n_trials=100
                     )
                     studies.append(study)
-                
+
                 for study in studies:
                     best_metrics = study.best_trial.user_attrs('metrics')
 
 
 if __name__ == "__main__":
     main()
-                    
-
-
-

@@ -25,8 +25,8 @@ if __name__ == "__main__":
 
     base_transform, train_transform = get_transforms(image_size)
     train_ds = OCTDLDataset(
-        train_data, 
-        classes, 
+        train_data,
+        classes,
         transform=train_transform if apply_augmentation else base_transform
     )
     val_ds = OCTDLDataset(val_data, classes, transform=base_transform)
@@ -43,14 +43,14 @@ if __name__ == "__main__":
     adam = optim.Adam(model.parameters(), learning_rate)
 
     train_gen = train(
-        model, 
-        train_loader=train_loader, 
-        val_loader=val_loader, 
+        model,
+        train_loader=train_loader,
+        val_loader=val_loader,
         epochs=epochs,
-        optimizer=adam, 
-        loss_fn=loss_fn, 
-        metrics=metrics, 
-        metric_names=metric_names, 
+        optimizer=adam,
+        loss_fn=loss_fn,
+        metrics=metrics,
+        metric_names=metric_names,
         patience=5,
         from_epoch=20
     )

@@ -18,7 +18,7 @@ class OCTDLClass(Enum):
     AMD = 0
     DME = 1
     ERM = 2
-    NO  = 3
+    NO = 3
     RAO = 4
     RVO = 5
     VID = 6
@@ -37,6 +37,7 @@ class OCTDLDataset(Dataset):
             e.g. [OCTDLClass.AMD, OCTDLClass.NO] -> AMD: 0, NO: 1.
         transform (callable, optional): Optional transform to be applied to a sample.
     """
+
     def __init__(self, data: list[tuple[str, str]], classes: list[OCTDLClass], transform=None):
         self.data = data
         self.transform = transform
@@ -52,7 +53,7 @@ class OCTDLDataset(Dataset):
     def __getitem__(self, idx):
         image_file, label = self.data[idx]
         image = io.read_image(image_file, mode=ImageReadMode.RGB)
-        # Convert to grayscale with three output channels 
+        # Convert to grayscale with three output channels
         # for transfer-learning compatability
         image = F.rgb_to_grayscale(image, num_output_channels=3)
         image = F.convert_image_dtype(image)
@@ -61,15 +62,15 @@ class OCTDLDataset(Dataset):
         encoded_label = self.class_to_index[label]
 
         return image, encoded_label
-    
+
 
 def _get_image_label_pairs(
-        ids: list[np.int64], 
-        id_to_images: dict[np.int64, list[(str, str)]]
-    ) -> list[(str, str)]:
+    ids: list[np.int64],
+    id_to_images: dict[np.int64, list[(str, str)]]
+) -> list[(str, str)]:
     """
     Get a list of image-label pairs from a list of IDs and a dictionary mapping IDs to image-label pairs.
-    
+
     Parameters:
 
         ids (list[np.int64]): 
@@ -77,7 +78,7 @@ def _get_image_label_pairs(
 
         id_to_images (dict[np.int64, list[(str, str)]]): 
             A dictionary where keys are IDs and values are lists of tuples with image-path and label.
-    
+
     Returns:
         list[(str, str)]: A list of tuples of image-path and label.
     """
@@ -86,18 +87,19 @@ def _get_image_label_pairs(
         ids, []
     )
 
+
 def load_octdl_data(
-        classes: list[OCTDLClass], 
-        ds_dir: str = './OCTDL', 
-        labels_file: str = 'OCTDL_labels.csv'
-    ):
+    classes: list[OCTDLClass],
+    ds_dir: str = './OCTDL',
+    labels_file: str = 'OCTDL_labels.csv'
+):
     """
     Load OCTDL dataset containing the given classes,
     split into train, validation, and test sets, 
     and compute balancing weights.
     The data is split such that each patient's data is
     present in only one of the sets.
-    
+
     Parameters:
         classes (list[OCTDLClass]): 
             The classes to load.
@@ -105,17 +107,17 @@ def load_octdl_data(
             Directory containing the dataset. Default is './OCTDL'.
         labels_file (str): 
             Path to the labels CSV file. Default is './OCTDL_labels.csv'.
-    
+
     Returns:
         Tuple containing: (train_data, val_data, test_data, balancing_weights)
     """
     labels = [cls.name for cls in classes]
-    
+
     labels_df = pd.read_csv(os.path.join(ds_dir, labels_file))
     labels_df = labels_df.query('disease in @labels')
 
     # map patient_id to (image_path, label) list
-    patient_to_images: dict[np.int64, list[(str, str)]] = {} 
+    patient_to_images: dict[np.int64, list[(str, str)]] = {}
     i = 0
     for label in labels:
         label_dir = os.path.join(ds_dir, label)
@@ -131,7 +133,7 @@ def load_octdl_data(
                 i = i+1
 
     patient_ids = list(patient_to_images.keys())
-    
+
     # Split patients into train, val and test sets
     train_ids, val_test_ids = model_selection.train_test_split(
         patient_ids, test_size=0.3, random_state=42

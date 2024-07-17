@@ -88,10 +88,6 @@ def get_mobilenet(
     weights = models.MobileNet_V2_Weights.IMAGENET1K_V2 if transfer_learning else None
     mobilenetv2_model = models.mobilenet_v2(weights=weights)
 
-    if transfer_learning: 
-        for params in mobilenetv2_model.parameters():
-            params.requires_grad = False
-
     last_layer_input_size = mobilenetv2_model.last_channel
     layers = []
 
@@ -146,10 +142,6 @@ def get_efficientnet(
     """
     weights = models.EfficientNet_V2_S_Weights.IMAGENET1K_V1 if transfer_learning else None
     efficientnet_model = models.efficientnet_v2_s(weights=weights)
-
-    if transfer_learning: 
-        for params in efficientnet_model.parameters():
-            params.requires_grad = False
 
     last_layer_input_size = efficientnet_model.classifier[1].in_features
 

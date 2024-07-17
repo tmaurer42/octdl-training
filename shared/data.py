@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import io
 from torchvision.io.image import ImageReadMode
+from torchvision import transforms
 import torchvision.transforms.functional as F
 
 import pandas as pd
@@ -62,7 +63,7 @@ class OCTDLDataset(Dataset):
         return image, encoded_label
     
 
-def get_image_label_pairs(
+def _get_image_label_pairs(
         ids: list[np.int64], 
         id_to_images: dict[np.int64, list[(str, str)]]
     ) -> list[(str, str)]:
@@ -88,7 +89,7 @@ def get_image_label_pairs(
 def load_octdl_data(
         classes: list[OCTDLClass], 
         ds_dir: str = './OCTDL', 
-        labels_file: str = './OCTDL_labels.csv'
+        labels_file: str = 'OCTDL_labels.csv'
     ):
     """
     Load OCTDL dataset containing the given classes,
@@ -110,7 +111,7 @@ def load_octdl_data(
     """
     labels = [cls.name for cls in classes]
     
-    labels_df = pd.read_csv(labels_file)
+    labels_df = pd.read_csv(os.path.join(ds_dir, labels_file))
     labels_df = labels_df.query('disease in @labels')
 
     # map patient_id to (image_path, label) list
@@ -139,9 +140,9 @@ def load_octdl_data(
         val_test_ids, test_size=0.5, random_state=42
     )
 
-    train_data = get_image_label_pairs(train_ids, patient_to_images)
-    val_data = get_image_label_pairs(val_ids, patient_to_images)
-    test_data = get_image_label_pairs(test_ids, patient_to_images)
+    train_data = _get_image_label_pairs(train_ids, patient_to_images)
+    val_data = _get_image_label_pairs(val_ids, patient_to_images)
+    test_data = _get_image_label_pairs(test_ids, patient_to_images)
 
     # Compute balancing weights according to the distribution in the whole dataset
     all_labels = labels_df['disease'].to_list()
@@ -153,3 +154,35 @@ def load_octdl_data(
     balancing_weights = torch.Tensor(balancing_weights)
 
     return train_data, val_data, test_data, balancing_weights
+
+
+def get_transforms(img_target_size: int):
+    """
+    Get base and augmentation transforms for image preprocessing.
+    Images will be of size (img_target_size, img_target_size) after the transforms
+    and their pixel values normalized between -1 and 1.
+
+    Parameters:
+        img_target_size (int): Target size for image resizing.
+
+    Returns:
+        tuple: (base_transform, augment_transform)
+    """
+    mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
+
+    base_transform = transforms.Compose([
+        transforms.Resize((img_target_size, img_target_size)),
+        transforms.Normalize(mean=mean, std=std)
+    ])
+
+    augment_transform = transforms.Compose([
+        transforms.RandomResizedCrop(img_target_size, scale=(0.8, 1.0)),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(10),
+        transforms.RandomAffine(0, translate=(0.1, 0.1)),
+        transforms.GaussianBlur(kernel_size=(3, 5)),
+        transforms.Normalize(mean=mean, std=std),
+    ])
+
+    return base_transform, augment_transform

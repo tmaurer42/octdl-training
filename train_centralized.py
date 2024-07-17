@@ -3,10 +3,9 @@ from typing import Optional
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from torchvision import transforms
 from sklearn.metrics import confusion_matrix
 
-from metrics import CategoricalMetric
+from shared.metrics import CategoricalMetric
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -244,35 +243,3 @@ def train(
         model.load_state_dict(best_model_weights)
 
     return best_val_loss, best_model_confusion_matrix, best_model_metrics
-
-
-def get_transforms(img_target_size: int):
-    """
-    Get base and augmentation transforms for image preprocessing.
-    Images will be of size (img_target_size, img_target_size) after the transforms
-    and their pixel values normalized between -1 and 1.
-
-    Parameters:
-        img_target_size (int): Target size for image resizing.
-
-    Returns:
-        tuple: (base_transform, augment_transform)
-    """
-    mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
-
-    base_transform = transforms.Compose([
-        transforms.Resize((img_target_size, img_target_size)),
-        transforms.Normalize(mean=mean, std=std)
-    ])
-
-    augment_transform = transforms.Compose([
-        transforms.RandomResizedCrop(img_target_size, scale=(0.8, 1.0)),
-        transforms.RandomVerticalFlip(),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(10),
-        transforms.RandomAffine(0, translate=(0.1, 0.1)),
-        transforms.GaussianBlur(kernel_size=(3, 5)),
-        transforms.Normalize(mean=mean, std=std),
-    ])
-
-    return base_transform, augment_transform

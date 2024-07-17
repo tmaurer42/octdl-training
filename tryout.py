@@ -1,11 +1,10 @@
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from data import OCTDLClass, OCTDLDataset, load_octdl_data
-from metrics import BalancedAccuracy, F1ScoreMacro
-from model import get_efficientnet
-from train import get_transforms, train
-
+from shared.data import OCTDLClass, OCTDLDataset, load_octdl_data, get_transforms
+from shared.metrics import BalancedAccuracy, F1ScoreMacro
+from shared.model import get_efficientnet
+from train_centralized import train
 
 if __name__ == "__main__":
     classes = [OCTDLClass.AMD, OCTDLClass.NO]

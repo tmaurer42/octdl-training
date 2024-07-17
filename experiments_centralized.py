@@ -7,13 +7,13 @@ from torch import nn, optim
 from torchvision.models import ResNet
 from torch.utils.data import DataLoader
 
-from data import OCTDLClass, OCTDLDataset, load_octdl_data
-from metrics import BalancedAccuracy, F1ScoreMacro, CategoricalMetric
-from train import train, get_transforms
-from model import get_resnet, get_mobilenet
+from shared.data import OCTDLClass, OCTDLDataset, load_octdl_data, get_transforms
+from shared.metrics import BalancedAccuracy, F1ScoreMacro, CategoricalMetric
+from train_centralized import train
+from shared.model import get_efficientnet, get_resnet, get_mobilenet
 
 
-ModelType = Literal["ResNet18", "MobileNetV2"]
+ModelType = Literal["ResNet18", "MobileNetV2", "EfficientNetV2"]
 
 
 def load_weights(study_name, model: nn.Module, trial_number):
@@ -77,6 +77,13 @@ def run_study(
             )
         if model_type == "MobileNetV2":
             model = get_mobilenet(
+                transfer_learning=transfer_learning,
+                num_classes=len(classes),
+                dropout=dropout
+            )
+
+        if model_type == "EfficientNetV2":
+            model = get_efficientnet(
                 transfer_learning=transfer_learning,
                 num_classes=len(classes),
                 dropout=dropout

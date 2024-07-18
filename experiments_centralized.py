@@ -1,5 +1,4 @@
 import os
-from typing import Literal
 import optuna
 
 import torch
@@ -10,14 +9,14 @@ from torch.utils.data import DataLoader
 from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms
 from shared.metrics import BalancedAccuracy, F1ScoreMacro, CategoricalMetric
 from train_centralized import train
-from shared.model import get_efficientnet, get_resnet, get_mobilenet
+from shared.model import ModelType, get_model_by_type
 
 
-ModelType = Literal["ResNet18", "MobileNetV2", "EfficientNetV2"]
+centralized_chkpts_path = os.path.join('.', 'checkpoints_centralized')
 
 
-def load_weights(study_name, model: nn.Module, trial_number):
-    path = os.path.join('.', 'params', study_name)
+def load_weights(model: nn.Module, study_name, trial_number):
+    path = os.path.join(centralized_chkpts_path, study_name)
     weights_path = os.path.join(path, f"{trial_number}.pth")
 
     if not os.path.exists(weights_path):
@@ -27,7 +26,7 @@ def load_weights(study_name, model: nn.Module, trial_number):
 
 
 def save_weights(study_name: str, model: ResNet, trial_number):
-    path = os.path.join('.', 'params', study_name)
+    path = os.path.join(centralized_chkpts_path, study_name)
     if not os.path.exists(path):
         os.makedirs(path)
     torch.save(model.state_dict(), os.path.join(path, f"{trial_number}.pth"))
@@ -73,25 +72,8 @@ def run_study(
         val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
         # Initialize model
-        if model_type == "ResNet18":
-            model = get_resnet(
-                transfer_learning=transfer_learning,
-                num_classes=len(classes),
-                dropout=dropout
-            )
-        if model_type == "MobileNetV2":
-            model = get_mobilenet(
-                transfer_learning=transfer_learning,
-                num_classes=len(classes),
-                dropout=dropout
-            )
-
-        if model_type == "EfficientNetV2":
-            model = get_efficientnet(
-                transfer_learning=transfer_learning,
-                num_classes=len(classes),
-                dropout=dropout
-            )
+        model = get_model_by_type(
+            model_type, transfer_learning, classes, dropout)
 
         adam = optim.Adam(model.parameters(), learning_rate)
 
@@ -120,11 +102,11 @@ def run_study(
                 best_val_loss, best_confusion_matrix, best_model_metrics = res.value
 
                 # Set confusion_matrix and metrics in the trial to see it in the dashboard
-                trial.set_user_attr('best_confusion_matrix',
+                trial.set_user_attr('confusion_matrix',
                                     best_confusion_matrix.tolist())
                 metrics_dict = {f"val_{name}": value for name,
                                 value in zip(metric_names, best_model_metrics)}
-                trial.set_user_attr('best_model_metrics', metrics_dict)
+                trial.set_user_attr('metrics', metrics_dict)
 
                 # Save the weights for testing the model
                 save_weights(study_name, model, trial.number)
@@ -161,18 +143,19 @@ def main():
     metric_names = ['balanced_accuracy', 'f1_score']
 
     use_cases = [
-        [OCTDLClass.AMD, OCTDLClass.NO]
+        [OCTDLClass.AMD, OCTDLClass.NO],
+        [OCTDLClass.AMD, OCTDLClass.DME, OCTDLClass.ERM, OCTDLClass.NO,
+            OCTDLClass.RAO, OCTDLClass.RVO, OCTDLClass.VID]
     ]
-    models = ["ResNet18"]
+    models: list[ModelType] = ["ResNet18", "MobileNetV2", "EfficientNetV2"]
 
     for class_list in use_cases:
-        train_data, val_data, test_data = load_octdl_data(
+        train_data, val_data, _ = load_octdl_data(
             class_list
         )
         balancing_weights = get_balancing_weights(class_list)
         for model_type in models:
             for transfer_learning in [False, True]:
-                studies: list[optuna.Study] = []
                 loss_fns = [
                     nn.CrossEntropyLoss(),
                     nn.CrossEntropyLoss(
@@ -181,7 +164,7 @@ def main():
                 for loss_fn in loss_fns:
                     study_name = get_study_name(
                         class_list, model_type, transfer_learning, loss_fn)
-                    study = run_study(
+                    run_study(
                         study_name=study_name,
                         classes=class_list,
                         model_type=model_type,
@@ -193,10 +176,6 @@ def main():
                         metric_names=metric_names,
                         n_trials=100
                     )
-                    studies.append(study)
-
-                for study in studies:
-                    best_metrics = study.best_trial.user_attrs('metrics')
 
 
 if __name__ == "__main__":

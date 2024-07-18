@@ -1,5 +1,38 @@
+from typing import Literal
 from torch import nn
 from torchvision import models
+
+from shared.data import OCTDLClass
+
+
+ModelType = Literal["ResNet18", "MobileNetV2", "EfficientNetV2"]
+
+
+def get_model_by_type(
+    model_type: ModelType,
+    transfer_learning: bool,
+    classes: list[OCTDLClass],
+    dropout: float
+):
+    if model_type == "ResNet18":
+        return get_resnet(
+            transfer_learning=transfer_learning,
+            num_classes=len(classes),
+            dropout=dropout
+        )
+    if model_type == "MobileNetV2":
+        return get_mobilenet(
+            transfer_learning=transfer_learning,
+            num_classes=len(classes),
+            dropout=dropout
+        )
+
+    if model_type == "EfficientNetV2":
+        return get_efficientnet(
+            transfer_learning=transfer_learning,
+            num_classes=len(classes),
+            dropout=dropout
+        )
 
 
 def get_resnet(

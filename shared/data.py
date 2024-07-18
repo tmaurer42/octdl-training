@@ -153,6 +153,7 @@ def get_balancing_weights(
     ds_dir: str = './OCTDL',
     labels_file: str = 'OCTDL_labels.csv'
 ):
+    labels = [cls.name for cls in classes]
     labels_df = pd.read_csv(os.path.join(ds_dir, labels_file))
     labels_df = labels_df.query('disease in @labels')
 

@@ -29,7 +29,8 @@ def save_weights(study_name: str, model: ResNet, trial_number):
     path = os.path.join(centralized_chkpts_path, study_name)
     if not os.path.exists(path):
         os.makedirs(path)
-    torch.save(model.state_dict(), os.path.join(path, f"{trial_number}.pth"))
+    torch.save(model.state_dict(), os.path.join(
+        path, f"{study_name}__{trial_number}.pth"))
 
 
 def run_study(
@@ -131,11 +132,11 @@ def get_study_name(
     transfer_learning: bool,
     loss: nn.CrossEntropyLoss
 ):
-    classes_str = f"({', '.join([cls.name for cls in classes])})"
+    classes_str = f"{'-'.join([cls.name for cls in classes])}"
     transfer_learning_str = "transfer" if transfer_learning else "no transfer"
     loss_str = "WeightedCrossEntropy" if loss.weight is not None else "CrossEntropy"
 
-    return f"{classes_str} | {model} | {transfer_learning_str} | {loss_str}"
+    return f"{classes_str}_{model}_{transfer_learning_str}_{loss_str}"
 
 
 def main():

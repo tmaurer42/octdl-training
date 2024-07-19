@@ -165,6 +165,8 @@ def get_balancing_weights(
 
     balancing_weights = torch.Tensor(balancing_weights)
 
+    return balancing_weights
+
 
 def get_transforms(img_target_size: int):
     """

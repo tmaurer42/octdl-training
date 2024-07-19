@@ -140,7 +140,7 @@ def get_study_name(
 
 def main():
     metrics = [BalancedAccuracy(),  F1ScoreMacro()]
-    metric_names = ['balanced_accuracy', 'f1_score']
+    metric_names = ['balanced_accuracy', 'f1_score_macro']
 
     use_cases = [
         [OCTDLClass.AMD, OCTDLClass.NO],

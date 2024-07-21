@@ -143,8 +143,10 @@ def get_mobilenet(
 
     layers.append(nn.Linear(last_layer_input_size, num_classes))
 
+    if dropout > 0:
+        layers = [nn.Dropout(dropout), *layers]
+
     mobilenetv2_model.classifier = nn.Sequential(
-        nn.Dropout(dropout),
         *layers
     )
     return mobilenetv2_model
@@ -201,6 +203,10 @@ def get_efficientnet(
 
     layers.append(nn.Linear(last_layer_input_size, num_classes))
 
-    efficientnet_model.classifier[0] = nn.Dropout(dropout)
-    efficientnet_model.classifier[1] = nn.Sequential(*layers)
+    if dropout > 0:
+        layers = [nn.Dropout(dropout), *layers]
+
+    efficientnet_model.classifier = nn.Sequential(
+        *layers
+    )
     return efficientnet_model

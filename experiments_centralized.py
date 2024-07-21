@@ -91,7 +91,8 @@ def run_study(
             metrics=metrics,
             metric_names=metric_names,
             patience=5,
-            from_epoch=20
+            from_epoch=20,
+            print_batch_info=False
         )
 
         current_epoch = 1
@@ -126,7 +127,7 @@ def run_study(
         storage=f"sqlite:///results_{model_type}_{classes_str}.sqlite3",
     )
 
-    study.optimize(objective, n_trials)
+    study.optimize(objective, n_trials, n_jobs=4)
 
     return study
 

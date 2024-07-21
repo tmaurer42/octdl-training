@@ -119,7 +119,7 @@ def get_mobilenet(
         The configured MobileNetV2 model.
     """
     weights = models.MobileNet_V2_Weights.IMAGENET1K_V2 if transfer_learning else None
-    mobilenetv2_model = models.mobilenet_v2(weights=weights)
+    mobilenetv2_model = models.mobilenet_v2(weights=weights, width_mult=0.5)
 
     last_layer_input_size = mobilenetv2_model.last_channel
     layers = []

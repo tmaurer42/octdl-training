@@ -12,6 +12,9 @@ from shared.metrics import BalancedAccuracy, F1ScoreMacro, CategoricalMetric
 from train_centralized import train
 from shared.model import ModelType, get_model_by_type
 
+import faulthandler
+faulthandler.enable()
+
 
 centralized_chkpts_path = os.path.join('.', 'checkpoints_centralized')
 
@@ -46,7 +49,6 @@ def run_study(
     metric_names: list[str],
     n_trials: int = 100
 ):
-
     def objective(trial: optuna.Trial):
         image_size = 224
         epochs = 100
@@ -143,17 +145,6 @@ def get_study_name(
 def main(model_type, class_list):
     metrics = [BalancedAccuracy(), F1ScoreMacro()]
     metric_names = ['balanced_accuracy', 'f1_score_macro']
-
-    use_cases = [
-        [OCTDLClass.AMD, OCTDLClass.NO],
-        [OCTDLClass.AMD, OCTDLClass.DME, OCTDLClass.ERM, OCTDLClass.NO,
-            OCTDLClass.RAO, OCTDLClass.RVO, OCTDLClass.VID]
-    ]
-
-    # Filter use_cases based on the provided class_list
-    if class_list not in use_cases:
-        raise ValueError(
-            f"The provided class list {class_list} is not a valid use case.")
 
     train_data, val_data, _ = load_octdl_data(class_list)
     balancing_weights = get_balancing_weights(class_list)

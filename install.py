@@ -38,6 +38,8 @@ def main():
 
     mode = sys.argv[1].lower()
 
+    install_requirements()
+
     if mode == 'centralized':
         install_centralized()
     elif mode == 'federated':
@@ -45,8 +47,6 @@ def main():
     else:
         print("Invalid argument. Use 'centralized' or 'federated'")
         sys.exit(1)
-
-    install_requirements()
 
 
 if __name__ == '__main__':

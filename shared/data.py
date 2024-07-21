@@ -55,8 +55,8 @@ class OCTDLDataset(Dataset):
         image = io.read_image(image_file, mode=ImageReadMode.RGB)
         # Convert to grayscale with three output channels
         # for transfer-learning compatability
-        image = F.rgb_to_grayscale(image, num_output_channels=3)
         image = F.convert_image_dtype(image)
+        image = F.rgb_to_grayscale(image, num_output_channels=3)
         if self.transform:
             image = self.transform(image)
         encoded_label = self.class_to_index[label]

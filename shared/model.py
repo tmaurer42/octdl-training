@@ -143,8 +143,10 @@ def get_mobilenet(
 
     layers.append(nn.Linear(last_layer_input_size, num_classes))
 
-    mobilenetv2_model.classifier[0] = nn.Dropout(dropout)
-    mobilenetv2_model.classifier[1] = nn.Sequential(*layers)
+    mobilenetv2_model.classifier = nn.Sequential(
+        nn.Dropout(dropout),
+        *layers
+    )
     return mobilenetv2_model
 
 

@@ -1,6 +1,7 @@
 import os
-import optuna
+import argparse
 
+import optuna
 import torch
 from torch import nn, optim
 from torchvision.models import ResNet
@@ -118,7 +119,7 @@ def run_study(
     study = optuna.create_study(
         direction=optuna.study.StudyDirection.MINIMIZE,
         study_name=study_name,
-        storage="sqlite:///results.sqlite3",
+        storage=f"sqlite:///results_{model_type}.sqlite3",
     )
 
     study.optimize(objective, n_trials)
@@ -139,8 +140,8 @@ def get_study_name(
     return f"{classes_str}_{model}_{transfer_learning_str}_{loss_str}"
 
 
-def main():
-    metrics = [BalancedAccuracy(),  F1ScoreMacro()]
+def main(model_type, class_list):
+    metrics = [BalancedAccuracy(), F1ScoreMacro()]
     metric_names = ['balanced_accuracy', 'f1_score_macro']
 
     use_cases = [
@@ -148,36 +149,49 @@ def main():
         [OCTDLClass.AMD, OCTDLClass.DME, OCTDLClass.ERM, OCTDLClass.NO,
             OCTDLClass.RAO, OCTDLClass.RVO, OCTDLClass.VID]
     ]
-    models: list[ModelType] = ["ResNet18", "MobileNetV2", "EfficientNetV2"]
 
-    for class_list in use_cases:
-        train_data, val_data, _ = load_octdl_data(
-            class_list
-        )
-        balancing_weights = get_balancing_weights(class_list)
-        for model_type in models:
-            for transfer_learning in [False, True]:
-                loss_fns = [
-                    nn.CrossEntropyLoss(),
-                    nn.CrossEntropyLoss(
-                        weight=balancing_weights, label_smoothing=0.1)
-                ]
-                for loss_fn in loss_fns:
-                    study_name = get_study_name(
-                        class_list, model_type, transfer_learning, loss_fn)
-                    run_study(
-                        study_name=study_name,
-                        classes=class_list,
-                        model_type=model_type,
-                        train_data=train_data,
-                        val_data=val_data,
-                        transfer_learning=transfer_learning,
-                        loss_fn=loss_fn,
-                        metrics=metrics,
-                        metric_names=metric_names,
-                        n_trials=100
-                    )
+    # Filter use_cases based on the provided class_list
+    if class_list not in use_cases:
+        raise ValueError(
+            f"The provided class list {class_list} is not a valid use case.")
+
+    train_data, val_data, _ = load_octdl_data(class_list)
+    balancing_weights = get_balancing_weights(class_list)
+
+    for transfer_learning in [False, True]:
+        loss_fns = [
+            nn.CrossEntropyLoss(),
+            nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
+        ]
+        for loss_fn in loss_fns:
+            study_name = get_study_name(
+                class_list, model_type, transfer_learning, loss_fn)
+            run_study(
+                study_name=study_name,
+                classes=class_list,
+                model_type=model_type,
+                train_data=train_data,
+                val_data=val_data,
+                transfer_learning=transfer_learning,
+                loss_fn=loss_fn,
+                metrics=metrics,
+                metric_names=metric_names,
+                n_trials=100
+            )
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Run model training with specified model type and class list.")
+    parser.add_argument('--model_type', type=str, required=True, choices=["ResNet18", "MobileNetV2", "EfficientNetV2"],
+                        help="Type of model to use.")
+    parser.add_argument('--class_list', type=str, required=True,
+                        help="Comma-separated list of classes.")
+
+    args = parser.parse_args()
+
+    # Convert class_list from string to list of OCTDLClass enums
+    class_list_str = args.class_list.split(',')
+    class_list = [getattr(OCTDLClass, cls) for cls in class_list_str]
+
+    main(args.model_type, class_list)

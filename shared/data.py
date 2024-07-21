@@ -67,7 +67,7 @@ class OCTDLDataset(Dataset):
 def _get_image_label_pairs(
     ids: list[np.int64],
     id_to_images: dict[np.int64, list[(str, str)]]
-) -> list[(str, str)]:
+) -> list[tuple[str, str]]:
     """
     Get a list of image-label pairs from a list of IDs and a dictionary mapping IDs to image-label pairs.
 

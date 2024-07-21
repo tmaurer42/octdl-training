@@ -23,6 +23,8 @@ class CategoricalMetric(abc.ABC):
         return value
 
     def compute(self):
+        if len(self.collected_values) == 0:
+            return 0.0
         return sum(self.collected_values) / len(self.collected_values)
 
     def reset(self):

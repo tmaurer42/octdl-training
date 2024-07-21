@@ -209,8 +209,9 @@ def train(
             if len(metrics) > 0:
                 preds = preds.cpu().numpy()
                 labels = labels.cpu().numpy()
-            for metric in metrics:
-                metric.update(preds, labels)
+
+                for metric in metrics:
+                    metric.update(preds, labels)
 
             train_metrics = [metric.compute().item() for metric in metrics]
 

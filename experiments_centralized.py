@@ -118,10 +118,12 @@ def run_study(
 
         return best_val_loss
 
+    classes_str = '-'.join([cls.name for cls in classes])
+
     study = optuna.create_study(
         direction=optuna.study.StudyDirection.MINIMIZE,
         study_name=study_name,
-        storage=f"sqlite:///results_{model_type}.sqlite3",
+        storage=f"sqlite:///results_{model_type}_{classes_str}.sqlite3",
     )
 
     study.optimize(objective, n_trials)

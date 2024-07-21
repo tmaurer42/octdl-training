@@ -40,8 +40,6 @@ def main():
 
     mode = sys.argv[1].lower()
 
-    install_requirements()
-
     if mode == 'centralized':
         install_centralized()
     elif mode == 'federated':

@@ -145,38 +145,39 @@ def get_study_name(
     return f"{classes_str}_{model}_{transfer_learning_str}_{loss_str}"
 
 
-def main(model_type, class_list):
+def main(model_type, class_list, transfer_learning):
     metrics = [BalancedAccuracy(), F1ScoreMacro()]
     metric_names = ['balanced_accuracy', 'f1_score_macro']
 
     train_data, val_data, _ = load_octdl_data(class_list)
     balancing_weights = get_balancing_weights(class_list)
 
-    for transfer_learning in [False, True]:
-        loss_fns = [
-            nn.CrossEntropyLoss(),
-            nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
-        ]
-        for loss_fn in loss_fns:
-            study_name = get_study_name(
-                class_list, model_type, transfer_learning, loss_fn)
-            run_study(
-                study_name=study_name,
-                classes=class_list,
-                model_type=model_type,
-                train_data=train_data,
-                val_data=val_data,
-                transfer_learning=transfer_learning,
-                loss_fn=loss_fn,
-                metrics=metrics,
-                metric_names=metric_names,
-                n_trials=100
-            )
+    loss_fns = [
+        nn.CrossEntropyLoss(),
+        nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
+    ]
+    for loss_fn in loss_fns:
+        study_name = get_study_name(
+            class_list, model_type, transfer_learning, loss_fn)
+        run_study(
+            study_name=study_name,
+            classes=class_list,
+            model_type=model_type,
+            train_data=train_data,
+            val_data=val_data,
+            transfer_learning=transfer_learning,
+            loss_fn=loss_fn,
+            metrics=metrics,
+            metric_names=metric_names,
+            n_trials=100
+        )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run model training with specified model type and class list.")
+    parser.add_argument('--transfer_learning', action='store_true',
+                        help='Whether to use transfer learning or not.')
     parser.add_argument('--model_type', type=str, required=True, choices=["ResNet18", "MobileNetV2", "EfficientNetV2"],
                         help="Type of model to use.")
     parser.add_argument('--class_list', type=str, required=True,
@@ -184,8 +185,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Convert class_list from string to list of OCTDLClass enums
+    transfer_learning = args.transfer_learning
     class_list_str = args.class_list.split(',')
     class_list = [getattr(OCTDLClass, cls) for cls in class_list_str]
 
-    main(args.model_type, class_list)
+    main(args.model_type, class_list, transfer_learning)

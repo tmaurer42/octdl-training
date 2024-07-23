@@ -124,7 +124,7 @@ def evaluate(
             for metric in metrics:
                 metric.update(preds, labels)
 
-        computed_metrics = [metric.compute().item() for metric in metrics]
+        computed_metrics = [metric.compute() for metric in metrics]
         for metric in metrics:
             metric.reset()
 
@@ -213,13 +213,13 @@ def train(
                 for metric in metrics:
                     metric.update(preds, labels)
 
-            train_metrics = [metric.compute().item() for metric in metrics]
+            train_metrics = [metric.compute() for metric in metrics]
 
             if print_batch_info:
                 print_stats(metric_names, train_metrics,
                             running_loss, None, None, replace_ln=True)
 
-        computed_metrics = [metric.compute().item() for metric in metrics]
+        computed_metrics = [metric.compute() for metric in metrics]
         for metric in metrics:
             metric.reset()
 

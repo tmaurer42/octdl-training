@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 
 from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms
 from shared.metrics import BalancedAccuracy, F1ScoreMacro
-from shared.model import get_efficientnet
+from shared.model import get_efficientnet, get_mobilenet, get_model_by_type
 from train_centralized import train
 
 if __name__ == "__main__":
@@ -21,10 +21,10 @@ if __name__ == "__main__":
     image_size = 224
     epochs = 100
 
-    batch_size = 32
+    batch_size = 128
     learning_rate = 0.0005
     apply_augmentation = True
-    dropout = 0.1
+    dropout = 0.2
 
     base_transform, train_transform = get_transforms(image_size)
     train_ds = OCTDLDataset(
@@ -37,11 +37,8 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
-    model = get_efficientnet(
-        transfer_learning=False,
-        num_classes=len(classes),
-        dropout=dropout
-    )
+    model = get_model_by_type(
+        "MobileNetV2", True, classes, dropout)
 
     adam = optim.Adam(model.parameters(), learning_rate)
 

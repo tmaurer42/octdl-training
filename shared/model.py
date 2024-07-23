@@ -119,7 +119,7 @@ def get_mobilenet(
         The configured MobileNetV2 model.
     """
     weights = models.MobileNet_V2_Weights.IMAGENET1K_V2 if transfer_learning else None
-    mobilenetv2_model = models.mobilenet_v2(weights=weights, width_mult=0.5)
+    mobilenetv2_model = models.mobilenet_v2(weights=weights)
 
     last_layer_input_size = mobilenetv2_model.last_channel
     layers = []
@@ -143,12 +143,8 @@ def get_mobilenet(
 
     layers.append(nn.Linear(last_layer_input_size, num_classes))
 
-    if dropout > 0:
-        layers = [nn.Dropout(dropout), *layers]
-
-    mobilenetv2_model.classifier = nn.Sequential(
-        *layers
-    )
+    mobilenetv2_model.classifier[0] = nn.Dropout(dropout)
+    mobilenetv2_model.classifier[1] = nn.Sequential(*layers)
     return mobilenetv2_model
 
 
@@ -203,10 +199,6 @@ def get_efficientnet(
 
     layers.append(nn.Linear(last_layer_input_size, num_classes))
 
-    if dropout > 0:
-        layers = [nn.Dropout(dropout), *layers]
-
-    efficientnet_model.classifier = nn.Sequential(
-        *layers
-    )
+    efficientnet_model.classifier[0] = nn.Dropout(dropout)
+    efficientnet_model.classifier[1] = nn.Sequential(*layers)
     return efficientnet_model

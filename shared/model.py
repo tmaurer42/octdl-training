@@ -84,7 +84,7 @@ def get_resnet(
         ])
         last_layer_input_size = dense_layer_2_size
 
-    if dropout > 0.0 and not transfer_learning:
+    if not transfer_learning:
         layers.append(nn.Dropout(dropout))
 
     layers.append(nn.Linear(last_layer_input_size, num_classes))

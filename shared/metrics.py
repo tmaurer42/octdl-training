@@ -1,6 +1,23 @@
 import abc
-
 from sklearn import metrics
+
+
+def balanced_accuracy(predictions, actual_values):
+    recalls = metrics.recall_score(actual_values, predictions, average=None)
+    
+    balanced_acc = recalls.mean()
+    return balanced_acc
+
+def balanced_accuracy_from_confustion_matrix(cm):
+    recalls = []
+    for i in range(len(cm)):
+        tp = cm[i][i]
+        fn = sum(cm[i]) - tp
+        recall = tp / (tp + fn)
+        recalls.append(recall)
+    
+    balanced_acc = sum(recalls) / len(recalls)
+    return balanced_acc
 
 
 class CategoricalMetric(abc.ABC):

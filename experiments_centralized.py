@@ -21,12 +21,12 @@ centralized_chkpts_path = os.path.join('.', 'checkpoints_centralized')
 
 def load_weights(model: nn.Module, study_name, trial_number):
     path = os.path.join(centralized_chkpts_path, study_name)
-    weights_path = os.path.join(path, f"{trial_number}.pth")
+    weights_path = os.path.join(path, f"{study_name}__{trial_number}.pth")
 
     if not os.path.exists(weights_path):
         print(f"Unable to load weights from path: {weights_path}")
         return
-    model.load_state_dict(torch.load(weights_path))
+    model.load_state_dict(torch.load(weights_path, map_location=torch.device('cpu') ))
 
 
 def save_weights(study_name: str, model: ResNet, trial_number):

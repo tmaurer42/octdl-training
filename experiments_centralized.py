@@ -53,7 +53,8 @@ def run_study(
     loss_fn: nn.CrossEntropyLoss,
     metrics: list[CategoricalMetric],
     optimization_mode: OptimizationMode,
-    n_trials: int = 100
+    n_jobs: int,
+    n_trials: int = 100,
 ):
     metric_names = [m.name for m in metrics]
 
@@ -151,7 +152,7 @@ def run_study(
         storage=f"sqlite:///{db_path}",
     )
 
-    study.optimize(objective, n_trials, n_jobs=4)
+    study.optimize(objective, n_trials, n_jobs=n_jobs)
 
     return study
 
@@ -174,7 +175,8 @@ def main(
     model_type: ModelType,
     class_list: list[OCTDLClass],
     transfer_learning: bool,
-    optimization_mode: OptimizationMode
+    optimization_mode: OptimizationMode,
+    n_jobs=1
 ):
     metrics = [BalancedAccuracy(), F1ScoreMacro()]
 
@@ -198,7 +200,8 @@ def main(
             loss_fn=loss_fn,
             metrics=metrics,
             optimization_mode=optimization_mode,
-            n_trials=100
+            n_trials=100,
+            n_jobs=n_jobs
         )
 
 
@@ -215,6 +218,8 @@ if __name__ == "__main__":
     optimization_mode_choices = list(get_args(OptimizationMode))
     parser.add_argument('--optimization_mode', required=True,
                         choices=optimization_mode_choices, help="Which optimization mode to use")
+    parser.add_argument('--n_jobs', type=int, required=False, default=1,
+                        help="The number of workers conducting the study in parallel")
 
     args = parser.parse_args()
 
@@ -222,4 +227,4 @@ if __name__ == "__main__":
     class_list_str = args.class_list.split(',')
     class_list = [getattr(OCTDLClass, cls) for cls in class_list_str]
 
-    main(args.model_type, class_list, transfer_learning, args.optimization_mode)
+    main(args.model_type, class_list, transfer_learning, args.optimization_mode, args.n_jobs)

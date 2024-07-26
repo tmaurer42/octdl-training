@@ -1,5 +1,6 @@
 import os
 import argparse
+from typing import Literal, get_args
 
 import optuna
 import torch
@@ -16,17 +17,22 @@ import faulthandler
 faulthandler.enable()
 
 
-centralized_chkpts_path = os.path.join('.', 'checkpoints_centralized')
+OptimizationMode = Literal["minimize_loss", "maximize_f1_macro"]
+
+
+centralized_chkpts_path = os.path.join(
+    '.', 'results_centralized', 'checkpoints')
 
 
 def load_weights(model: nn.Module, study_name, trial_number):
     path = os.path.join(centralized_chkpts_path, study_name)
-    weights_path = os.path.join(path, f"{study_name}__{trial_number}.pth")
+    weights_path = os.path.join(path, f"{trial_number}.pth")
 
     if not os.path.exists(weights_path):
         print(f"Unable to load weights from path: {weights_path}")
         return
-    model.load_state_dict(torch.load(weights_path, map_location=torch.device('cpu') ))
+    model.load_state_dict(torch.load(
+        weights_path, map_location=torch.device('cpu')))
 
 
 def save_weights(study_name: str, model: ResNet, trial_number):
@@ -34,7 +40,7 @@ def save_weights(study_name: str, model: ResNet, trial_number):
     if not os.path.exists(path):
         os.makedirs(path)
     torch.save(model.state_dict(), os.path.join(
-        path, f"{study_name}__{trial_number}.pth"))
+        path, f"{trial_number}.pth"))
 
 
 def run_study(
@@ -46,9 +52,11 @@ def run_study(
     classes: list[OCTDLClass],
     loss_fn: nn.CrossEntropyLoss,
     metrics: list[CategoricalMetric],
-    metric_names: list[str],
+    optimization_mode: OptimizationMode,
     n_trials: int = 100
 ):
+    metric_names = [m.name for m in metrics]
+
     def objective(trial: optuna.Trial):
         image_size = 224
         epochs = 100
@@ -89,13 +97,14 @@ def run_study(
             optimizer=adam,
             loss_fn=loss_fn,
             metrics=metrics,
-            metric_names=metric_names,
             patience=5,
             from_epoch=20,
             print_batch_info=False
         )
 
         current_epoch = 1
+        best_value: float = None
+
         while True:
             try:
                 running_loss = next(train_gen)
@@ -115,16 +124,31 @@ def run_study(
 
                 # Save the weights for testing the model
                 save_weights(study_name, model, trial.number)
+
+                if optimization_mode == 'minimize_loss':
+                    best_value = best_val_loss
+                elif optimization_mode == 'maximize_f1_macro':
+                    f1_score_macro = F1ScoreMacro()
+                    best_value = metrics_dict[f"val_{f1_score_macro.name}"]
+
                 break
 
-        return best_val_loss
+        return best_value
 
     classes_str = '-'.join([cls.name for cls in classes])
 
+    direction = None
+    if optimization_mode == 'minimize_loss':
+        direction = optuna.study.StudyDirection.MINIMIZE
+    elif optimization_mode == 'maximize_f1_macro':
+        direction = optuna.study.StudyDirection.MAXIMIZE
+
+    db_path = os.path.join('results_centralized',
+                           f"results_{model_type}_{classes_str}_{optimization_mode}.sqlite3")
     study = optuna.create_study(
-        direction=optuna.study.StudyDirection.MINIMIZE,
+        direction=direction,
         study_name=study_name,
-        storage=f"sqlite:///results_{model_type}_{classes_str}.sqlite3",
+        storage=f"sqlite:///{db_path}",
     )
 
     study.optimize(objective, n_trials, n_jobs=4)
@@ -136,18 +160,23 @@ def get_study_name(
     classes: list[OCTDLClass],
     model: ModelType,
     transfer_learning: bool,
-    loss: nn.CrossEntropyLoss
+    loss: nn.CrossEntropyLoss,
+    optimization_mode: OptimizationMode
 ):
     classes_str = f"{'-'.join([cls.name for cls in classes])}"
     transfer_learning_str = "transfer" if transfer_learning else "no-transfer"
     loss_str = "WeightedCrossEntropy" if loss.weight is not None else "CrossEntropy"
 
-    return f"{classes_str}_{model}_{transfer_learning_str}_{loss_str}"
+    return f"{classes_str}_{model}_{optimization_mode}_{transfer_learning_str}_{loss_str}"
 
 
-def main(model_type, class_list, transfer_learning):
+def main(
+    model_type: ModelType,
+    class_list: list[OCTDLClass],
+    transfer_learning: bool,
+    optimization_mode: OptimizationMode
+):
     metrics = [BalancedAccuracy(), F1ScoreMacro()]
-    metric_names = ['balanced_accuracy', 'f1_score_macro']
 
     train_data, val_data, _ = load_octdl_data(class_list)
     balancing_weights = get_balancing_weights(class_list)
@@ -158,7 +187,7 @@ def main(model_type, class_list, transfer_learning):
     ]
     for loss_fn in loss_fns:
         study_name = get_study_name(
-            class_list, model_type, transfer_learning, loss_fn)
+            class_list, model_type, transfer_learning, loss_fn, optimization_mode)
         run_study(
             study_name=study_name,
             classes=class_list,
@@ -168,7 +197,7 @@ def main(model_type, class_list, transfer_learning):
             transfer_learning=transfer_learning,
             loss_fn=loss_fn,
             metrics=metrics,
-            metric_names=metric_names,
+            optimization_mode=optimization_mode,
             n_trials=100
         )
 
@@ -178,10 +207,14 @@ if __name__ == "__main__":
         description="Run model training with specified model type and class list.")
     parser.add_argument('--transfer_learning', action='store_true',
                         help='Whether to use transfer learning or not.')
-    parser.add_argument('--model_type', type=str, required=True, choices=["ResNet18", "MobileNetV2", "EfficientNetV2"],
-                        help="Type of model to use.")
+    model_type_mode_choices = list(get_args(ModelType))
+    parser.add_argument('--model_type', type=str, required=True, choices=model_type_mode_choices,
+                        help=f"Type of model to use")
     parser.add_argument('--class_list', type=str, required=True,
                         help="Comma-separated list of classes.")
+    optimization_mode_choices = list(get_args(OptimizationMode))
+    parser.add_argument('--optimization_mode', required=True,
+                        choices=optimization_mode_choices, help="Which optimization mode to use")
 
     args = parser.parse_args()
 
@@ -189,4 +222,4 @@ if __name__ == "__main__":
     class_list_str = args.class_list.split(',')
     class_list = [getattr(OCTDLClass, cls) for cls in class_list_str]
 
-    main(args.model_type, class_list, transfer_learning)
+    main(args.model_type, class_list, transfer_learning, args.optimization_mode)

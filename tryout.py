@@ -15,11 +15,10 @@ if __name__ == "__main__":
         classes
     )
     metrics = [BalancedAccuracy(),  F1ScoreMacro()]
-    metric_names = ['balanced_accuracy', 'f1_score']
     loss_fn = nn.CrossEntropyLoss()
 
     image_size = 224
-    epochs = 100
+    epochs = 1
 
     batch_size = 128
     learning_rate = 0.0005
@@ -50,7 +49,6 @@ if __name__ == "__main__":
         optimizer=adam,
         loss_fn=loss_fn,
         metrics=metrics,
-        metric_names=metric_names,
         patience=5,
         from_epoch=20
     )
@@ -61,3 +59,4 @@ if __name__ == "__main__":
         except StopIteration as res:
             best_val_loss, best_confusion_matrix, best_model_metrics = res.value
             print(best_val_loss)
+            break

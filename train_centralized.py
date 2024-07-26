@@ -118,9 +118,8 @@ def evaluate(
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
 
-            if len(metrics) > 0:
-                preds = preds.cpu().numpy()
-                labels = labels.cpu().numpy()
+            preds = preds.cpu().numpy()
+            labels = labels.cpu().numpy()
             for metric in metrics:
                 metric.update(preds, labels)
 
@@ -141,7 +140,6 @@ def train(
     loss_fn,
     optimizer: torch.optim.Optimizer,
     metrics: list[CategoricalMetric] = [],
-    metric_names: list[str] = [],
     patience: int = 5,
     from_epoch: int = 10,
     print_batch_info=True
@@ -181,6 +179,8 @@ def train(
     model.to(device)
     loss_fn.to(device)
 
+    metric_names = [metric.name for metric in metrics]
+
     best_val_loss = float('inf')
     best_model_metrics = []
     best_model_weights = None
@@ -206,16 +206,13 @@ def train(
 
             running_loss += loss.item()
 
-            if len(metrics) > 0:
-                preds = preds.cpu().numpy()
-                labels = labels.cpu().numpy()
-
-                for metric in metrics:
-                    metric.update(preds, labels)
-
-            train_metrics = [metric.compute() for metric in metrics]
+            preds = preds.cpu().numpy()
+            labels = labels.cpu().numpy()
+            for metric in metrics:
+                metric.update(preds, labels)
 
             if print_batch_info:
+                train_metrics = [metric.compute() for metric in metrics]
                 print_stats(metric_names, train_metrics,
                             running_loss, None, None, replace_ln=True)
 

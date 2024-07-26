@@ -7,32 +7,38 @@ import torch.utils
 import torch.utils.data
 from sklearn import metrics
 
-from experiments_centralized import get_study_name, load_weights
+from experiments_centralized import get_study_name, load_weights, OptimizationMode
 from shared.data import OCTDLClass, OCTDLDataset, get_transforms, load_octdl_data
 from shared.metrics import balanced_accuracy, balanced_accuracy_from_confustion_matrix
 from shared.model import ModelType, get_model_by_type
 from train_centralized import set_device
 
 
-def get_result_db_name(model_type: ModelType, classes: list[OCTDLClass]):
+def get_result_db_name(
+    model_type: ModelType,
+    classes: list[OCTDLClass],
+    optimization_mode: OptimizationMode
+):
     classes_str = '-'.join([cls.name for cls in classes])
-    return f"results_{model_type}_{classes_str}.sqlite3"
+    return f"results_{model_type}_{classes_str}_{optimization_mode}.sqlite3"
 
 
 def get_study(
     classes: list[OCTDLClass],
     model_type: ModelType,
     transfer_learning: bool,
-    loss_fn: nn.CrossEntropyLoss
+    loss_fn: nn.CrossEntropyLoss,
+    optimization_mode: OptimizationMode
 ):
     study_name = get_study_name(
         classes,
         model_type,
         transfer_learning=transfer_learning,
-        loss=loss_fn
+        loss=loss_fn,
+        optimization_mode=optimization_mode
     )
 
-    db_name = get_result_db_name(model_type, classes)
+    db_name = get_result_db_name(model_type, classes, optimization_mode)
     db_url = f"sqlite:///{os.path.join('results_centralized', db_name)}"
     study: optuna.Study = optuna.load_study(
         study_name=study_name, storage=db_url)
@@ -48,6 +54,7 @@ def get_study_with_best_acc(studies: list[optuna.Study]):
         best_trial = study.best_trial
 
         cm = best_trial.user_attrs['confusion_matrix']
+        # Choos better model by F1 Score
         val_bal_acc = balanced_accuracy_from_confustion_matrix(cm)
 
         if val_bal_acc > best_acc:
@@ -61,13 +68,15 @@ def evaluate(
     classes: list[OCTDLClass],
     model_type: ModelType,
     transfer_learning: bool,
+    optimization_mode: OptimizationMode
 ):
     ce_loss = nn.CrossEntropyLoss()
     weighted_ce_loss = nn.CrossEntropyLoss(weight=torch.tensor([]))
 
-    study_ce_loss = get_study(classes, model_type, transfer_learning, ce_loss)
+    study_ce_loss = get_study(
+        classes, model_type, transfer_learning, ce_loss, optimization_mode)
     study_weighted_ce_loss = get_study(
-        classes, model_type, transfer_learning, weighted_ce_loss)
+        classes, model_type, transfer_learning, weighted_ce_loss, optimization_mode)
 
     best_study = get_study_with_best_acc(
         [study_ce_loss, study_weighted_ce_loss])
@@ -102,7 +111,8 @@ def evaluate(
 
     bal_acc = balanced_accuracy(all_preds, all_labels)
     f1score_macro = metrics.f1_score(all_labels, all_preds, average='macro')
-    f1score_amd = metrics.f1_score(all_labels, all_preds, average='binary', pos_label=0)
+    f1score_amd = metrics.f1_score(
+        all_labels, all_preds, average='binary', pos_label=0)
 
     classes_str = ','.join([cls.name for cls in classes])
     print()
@@ -118,13 +128,13 @@ def evaluate(
 
 def main():
     evaluate([OCTDLClass.AMD, OCTDLClass.NO],
-             'ResNet18', transfer_learning=False)
+             'ResNet18', transfer_learning=False, optimization_mode='minimize_loss')
     evaluate([OCTDLClass.AMD, OCTDLClass.NO],
-             'ResNet18', transfer_learning=True)
+             'ResNet18', transfer_learning=True, optimization_mode='minimize_loss')
     evaluate([OCTDLClass.AMD, OCTDLClass.NO],
-             'MobileNetV2', transfer_learning=True)
+             'MobileNetV2', transfer_learning=True, optimization_mode='minimize_loss')
     evaluate([OCTDLClass.AMD, OCTDLClass.NO],
-             'EfficientNetV2', transfer_learning=True)
+             'EfficientNetV2', transfer_learning=True, optimization_mode='minimize_loss')
 
 
 if __name__ == "__main__":

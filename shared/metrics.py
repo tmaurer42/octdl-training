@@ -4,9 +4,14 @@ from sklearn import metrics
 
 def balanced_accuracy(predictions, actual_values):
     recalls = metrics.recall_score(actual_values, predictions, average=None)
-    
+
     balanced_acc = recalls.mean()
     return balanced_acc
+
+
+def f1_score_macro(predictions, actual_values):
+    return metrics.f1_score(actual_values, predictions, average='macro')
+
 
 def balanced_accuracy_from_confustion_matrix(cm):
     recalls = []
@@ -15,7 +20,7 @@ def balanced_accuracy_from_confustion_matrix(cm):
         fn = sum(cm[i]) - tp
         recall = tp / (tp + fn)
         recalls.append(recall)
-    
+
     balanced_acc = sum(recalls) / len(recalls)
     return balanced_acc
 
@@ -24,28 +29,34 @@ class CategoricalMetric(abc.ABC):
     """
     Base class similar to torchmetrics to wrap sklearn metrics.
     """
-    collected_values: list[float]
+    all_preds: list[int]
+    all_targets: list[int]
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        return None 
 
     def __init__(self):
-        self.collected_values = []
+        self.all_preds = []
+        self.all_targets = []
 
     @abc.abstractmethod
-    def calculate_metric(self, predictions: list[int], targets: list[int]) -> float:
+    def calculate_metric(self) -> float:
         pass
 
     def update(self, predictions: list[int], targets: list[int]):
-        value = self.calculate_metric(predictions, targets)
-        self.collected_values.append(value)
+        self.all_preds.extend(predictions)
+        self.all_targets.extend(targets)
 
-        return value
+        return self.calculate_metric()
 
     def compute(self):
-        if len(self.collected_values) == 0:
-            return 0.0
-        return sum(self.collected_values) / len(self.collected_values)
+        return self.calculate_metric()
 
     def reset(self):
-        self.collected_values = []
+        self.all_preds = []
+        self.all_targets = []
 
 
 class BalancedAccuracy(CategoricalMetric):
@@ -55,9 +66,14 @@ class BalancedAccuracy(CategoricalMetric):
 
     def __init__(self):
         super().__init__()
+        self._name = "balanced_accuracy"
 
-    def calculate_metric(self, predictions: list[int], targets: list[int]) -> float:
-        return metrics.balanced_accuracy_score(targets, predictions)
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def calculate_metric(self) -> float:
+        return balanced_accuracy(self.all_targets, self.all_preds)
 
 
 class F1ScoreMacro(CategoricalMetric):
@@ -67,6 +83,11 @@ class F1ScoreMacro(CategoricalMetric):
 
     def __init__(self):
         super().__init__()
+        self._name = "f1_score_macro"
 
-    def calculate_metric(self, predictions: list[int], targets: list[int]) -> float:
-        return metrics.f1_score(targets, predictions, average="macro")
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def calculate_metric(self) -> float:
+        return f1_score_macro(self.all_targets, self.all_preds)

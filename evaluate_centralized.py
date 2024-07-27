@@ -7,9 +7,9 @@ import torch.utils
 import torch.utils.data
 from sklearn import metrics
 
-from experiments_centralized import get_study_name, load_weights, OptimizationMode
+from experiments_centralized import LossFnType, get_study_name, load_weights, OptimizationMode
 from shared.data import OCTDLClass, OCTDLDataset, get_transforms, load_octdl_data
-from shared.metrics import balanced_accuracy, balanced_accuracy_from_confustion_matrix
+from shared.metrics import BalancedAccuracy, CategoricalMetric, F1ScoreMacro, balanced_accuracy
 from shared.model import ModelType, get_model_by_type
 from train_centralized import set_device
 
@@ -27,14 +27,14 @@ def get_study(
     classes: list[OCTDLClass],
     model_type: ModelType,
     transfer_learning: bool,
-    loss_fn: nn.CrossEntropyLoss,
+    loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode
 ):
     study_name = get_study_name(
         classes,
         model_type,
         transfer_learning=transfer_learning,
-        loss=loss_fn,
+        loss=loss_fn_type,
         optimization_mode=optimization_mode
     )
 
@@ -46,19 +46,19 @@ def get_study(
     return study
 
 
-def get_study_with_best_acc(studies: list[optuna.Study]):
-    best_acc = 0.0
+def get_study_with_best_metric(
+    studies: list[optuna.Study],
+    metric: type[CategoricalMetric]
+) -> optuna.Study:
+    best_metric_val = None
     best_study: optuna.Study = None
 
     for study in studies:
         best_trial = study.best_trial
 
-        cm = best_trial.user_attrs['confusion_matrix']
-        # Choos better model by F1 Score
-        val_bal_acc = balanced_accuracy_from_confustion_matrix(cm)
-
-        if val_bal_acc > best_acc:
-            best_acc = val_bal_acc
+        metric_val = best_trial.user_attrs['metrics'][metric.name()]
+        if metric_val > best_metric_val:
+            best_metric_val = metric_val
             best_study = study
 
     return best_study
@@ -68,18 +68,16 @@ def evaluate(
     classes: list[OCTDLClass],
     model_type: ModelType,
     transfer_learning: bool,
-    optimization_mode: OptimizationMode
+    optimization_mode: OptimizationMode,
+    comparison_metric: type[CategoricalMetric]
 ):
-    ce_loss = nn.CrossEntropyLoss()
-    weighted_ce_loss = nn.CrossEntropyLoss(weight=torch.tensor([]))
-
     study_ce_loss = get_study(
-        classes, model_type, transfer_learning, ce_loss, optimization_mode)
+        classes, model_type, transfer_learning, 'CrossEntropy', optimization_mode)
     study_weighted_ce_loss = get_study(
-        classes, model_type, transfer_learning, weighted_ce_loss, optimization_mode)
+        classes, model_type, transfer_learning, 'WeightedCrossEntropy', optimization_mode)
 
-    best_study = get_study_with_best_acc(
-        [study_ce_loss, study_weighted_ce_loss])
+    best_study: optuna.Study = get_study_with_best_metric(
+        [study_ce_loss, study_weighted_ce_loss, comparison_metric])
     study_name = best_study.study_name
     best_trial = best_study.best_trial
 
@@ -127,14 +125,14 @@ def evaluate(
 
 
 def main():
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO],
-             'ResNet18', transfer_learning=False, optimization_mode='minimize_loss')
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO],
-             'ResNet18', transfer_learning=True, optimization_mode='minimize_loss')
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO],
-             'MobileNetV2', transfer_learning=True, optimization_mode='minimize_loss')
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO],
-             'EfficientNetV2', transfer_learning=True, optimization_mode='minimize_loss')
+    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=False,
+             optimization_mode='minimize_loss', comparison_metric=BalancedAccuracy)
+    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=True,
+             optimization_mode='minimize_loss', comparison_metric=BalancedAccuracy)
+    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'MobileNetV2', transfer_learning=True,
+             optimization_mode='minimize_loss', comparison_metric=BalancedAccuracy)
+    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'EfficientNetV2', transfer_learning=True,
+             optimization_mode='minimize_loss', comparison_metric=BalancedAccuracy)
 
 
 if __name__ == "__main__":

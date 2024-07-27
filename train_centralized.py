@@ -1,14 +1,24 @@
+from dataclasses import dataclass
 from typing import Optional
 
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
+import numpy as np
 
 from shared.metrics import CategoricalMetric
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
+
+
+@dataclass
+class TrainEpochResult:
+    val_metrics: dict[str, float]
+    val_loss: float
+    val_confusion_matrix: np.ndarray
+    model_weights: dict[str, any]
 
 
 def set_device():
@@ -123,9 +133,9 @@ def evaluate(
             for metric in metrics:
                 metric.update(preds, labels)
 
-        computed_metrics = [metric.compute() for metric in metrics]
-        for metric in metrics:
-            metric.reset()
+    computed_metrics = [metric.compute() for metric in metrics]
+    for metric in metrics:
+        metric.reset()
 
     cm = confusion_matrix(all_labels, all_preds)
 
@@ -161,30 +171,16 @@ def train(
         print_batch_info (bool): If True, print batch information during training. Default is True.
 
 
-
     Returns:
-        A generator yielding the validation loss after each epoch.
-        After the last epoch returns
-        tuple: (best_val_loss, best_model_confusion_matrix, best_model_metrics)
-
-    Example::
-        while True:
-            try:
-                running_loss = next(train_gen)
-            except StopIteration as res:
-                best_val_loss, best_confusion_matrix, best_model_metrics = res.value
+        A generator yielding the TrainEpochResult each epoch.
     """
-
     device = set_device()
     model.to(device)
     loss_fn.to(device)
 
-    metric_names = [metric.name for metric in metrics]
+    metric_names = [metric.name() for metric in metrics]
 
     best_val_loss = float('inf')
-    best_model_metrics = []
-    best_model_weights = None
-    best_model_confusion_matrix = None
     early_stopping_counter = 0
 
     for epoch in range(epochs):
@@ -208,43 +204,37 @@ def train(
 
             preds = preds.cpu().numpy()
             labels = labels.cpu().numpy()
-            for metric in metrics:
-                metric.update(preds, labels)
+            train_metrics = [metric.update(preds, labels) for metric in metrics]
 
             if print_batch_info:
-                train_metrics = [metric.compute() for metric in metrics]
                 print_stats(metric_names, train_metrics,
                             running_loss, None, None, replace_ln=True)
-
-        computed_metrics = [metric.compute() for metric in metrics]
+        
+        train_metrics = [metric.compute() for metric in metrics]
         for metric in metrics:
             metric.reset()
 
         val_metrics, val_loss, val_confusion_matrix = evaluate(
             model, val_loader, loss_fn, metrics, device)
 
-        yield val_loss
-
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            best_model_weights = model.state_dict()
-            best_model_confusion_matrix = val_confusion_matrix
-            best_model_metrics = computed_metrics
-            early_stopping_counter = 0
-        elif epoch >= from_epoch:
-            early_stopping_counter += 1
+        metrics_dict = {name: val for name, val in zip(metric_names, val_metrics)}
+        epoch_result = TrainEpochResult(
+            metrics_dict, val_loss, val_confusion_matrix, model.state_dict())
 
         print_stats(
             metric_names,
-            computed_metrics, running_loss,
+            train_metrics, running_loss,
             val_metrics, val_loss,
             replace_ln=False
         )
 
+        yield epoch_result
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            early_stopping_counter = 0
+        elif epoch >= from_epoch:
+            early_stopping_counter += 1
+
         if early_stopping_counter >= patience:
             break
-
-    if best_model_weights is not None:
-        model.load_state_dict(best_model_weights)
-
-    return best_val_loss, best_model_confusion_matrix, best_model_metrics

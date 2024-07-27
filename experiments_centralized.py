@@ -5,12 +5,11 @@ from typing import Literal, get_args
 import optuna
 import torch
 from torch import nn, optim
-from torchvision.models import ResNet
 from torch.utils.data import DataLoader
 
 from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms
 from shared.metrics import BalancedAccuracy, F1ScoreMacro, CategoricalMetric
-from train_centralized import train
+from train_centralized import train, TrainEpochResult
 from shared.model import ModelType, get_model_by_type
 
 import faulthandler
@@ -18,6 +17,7 @@ faulthandler.enable()
 
 
 OptimizationMode = Literal["minimize_loss", "maximize_f1_macro"]
+LossFnType = Literal["CrossEntropy", "WeightedCrossEntropy"]
 
 
 centralized_chkpts_path = os.path.join(
@@ -35,29 +35,24 @@ def load_weights(model: nn.Module, study_name, trial_number):
         weights_path, map_location=torch.device('cpu')))
 
 
-def save_weights(study_name: str, model: ResNet, trial_number):
+def save_weights(study_name: str, weights: dict[str, any], trial_number):
     path = os.path.join(centralized_chkpts_path, study_name)
     if not os.path.exists(path):
         os.makedirs(path)
-    torch.save(model.state_dict(), os.path.join(
+    torch.save(weights, os.path.join(
         path, f"{trial_number}.pth"))
 
 
 def run_study(
     study_name: str,
     model_type: ModelType,
-    train_data: list,
-    val_data: list,
     transfer_learning: bool,
     classes: list[OCTDLClass],
-    loss_fn: nn.CrossEntropyLoss,
-    metrics: list[CategoricalMetric],
+    loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,
     n_jobs: int,
     n_trials: int = 100,
 ):
-    metric_names = [m.name for m in metrics]
-
     def objective(trial: optuna.Trial):
         image_size = 224
         epochs = 100
@@ -72,6 +67,8 @@ def run_study(
         dropout = trial.suggest_float("dropout", 0.0, 0.5, step=0.1)
 
         # Initialize data
+        train_data, val_data, _ = load_octdl_data(classes)
+
         base_transform, train_transform = get_transforms(image_size)
         train_ds = OCTDLDataset(
             train_data,
@@ -90,6 +87,15 @@ def run_study(
 
         adam = optim.Adam(model.parameters(), learning_rate)
 
+        balancing_weights = get_balancing_weights(classes)
+        loss_fn = None
+        if loss_fn_type == 'CrossEntropy':
+            loss_fn = nn.CrossEntropyLoss()
+        elif loss_fn_type == 'WeightedCrossEntropy':
+            loss_fn = nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
+
+        metrics = [BalancedAccuracy(), F1ScoreMacro()]
+
         train_gen = train(
             model,
             train_loader=train_loader,
@@ -105,34 +111,36 @@ def run_study(
 
         current_epoch = 1
         best_value: float = None
+        best_epoch_result: TrainEpochResult = None
 
-        while True:
-            try:
-                running_loss = next(train_gen)
-                trial.report(running_loss, step=current_epoch)
-                if trial.should_prune():
-                    raise optuna.TrialPruned()
-                current_epoch += 1
-            except StopIteration as res:
-                best_val_loss, best_confusion_matrix, best_model_metrics = res.value
+        for epoch_result in train_gen:
+            if optimization_mode == 'minimize_loss':
+                epoch_loss = epoch_result.val_loss
+                report_value = epoch_loss
 
-                # Set confusion_matrix and metrics in the trial to see it in the dashboard
-                trial.set_user_attr('confusion_matrix',
-                                    best_confusion_matrix.tolist())
-                metrics_dict = {f"val_{name}": value for name,
-                                value in zip(metric_names, best_model_metrics)}
-                trial.set_user_attr('metrics', metrics_dict)
+                if best_value is None or epoch_loss < best_value:
+                    best_value = epoch_loss
+                    best_epoch_result = epoch_result
 
-                # Save the weights for testing the model
-                save_weights(study_name, model, trial.number)
+            elif optimization_mode == 'maximize_f1_macro':
+                epoch_f1_score = epoch_result.val_metrics[F1ScoreMacro.name()]
+                report_value = epoch_f1_score
 
-                if optimization_mode == 'minimize_loss':
-                    best_value = best_val_loss
-                elif optimization_mode == 'maximize_f1_macro':
-                    f1_score_macro = F1ScoreMacro()
-                    best_value = metrics_dict[f"val_{f1_score_macro.name}"]
+                if best_value is None or epoch_f1_score > best_value:
+                    best_value = epoch_f1_score
+                    best_epoch_result = epoch_result
 
-                break
+            trial.report(report_value, step=current_epoch)
+            if trial.should_prune():
+                raise optuna.TrialPruned()
+
+            current_epoch += 1
+
+        trial.set_user_attr('confusion_matrix',
+                            best_epoch_result.val_confusion_matrix.tolist())
+        trial.set_user_attr('metrics', best_epoch_result.val_metrics)
+        trial.set_user_attr('val_loss', best_epoch_result.val_loss)
+        save_weights(study_name, best_epoch_result.model_weights, trial.number)
 
         return best_value
 
@@ -146,6 +154,10 @@ def run_study(
 
     db_path = os.path.join('results_centralized',
                            f"results_{model_type}_{classes_str}_{optimization_mode}.sqlite3")
+
+    if not os.path.exists('results_centralized'):
+        os.makedirs('results_centralized')
+
     study = optuna.create_study(
         direction=direction,
         study_name=study_name,
@@ -161,14 +173,13 @@ def get_study_name(
     classes: list[OCTDLClass],
     model: ModelType,
     transfer_learning: bool,
-    loss: nn.CrossEntropyLoss,
+    loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode
 ):
     classes_str = f"{'-'.join([cls.name for cls in classes])}"
     transfer_learning_str = "transfer" if transfer_learning else "no-transfer"
-    loss_str = "WeightedCrossEntropy" if loss.weight is not None else "CrossEntropy"
 
-    return f"{classes_str}_{model}_{optimization_mode}_{transfer_learning_str}_{loss_str}"
+    return f"{classes_str}_{model}_{optimization_mode}_{transfer_learning_str}_{loss_fn_type}"
 
 
 def main(
@@ -178,27 +189,19 @@ def main(
     optimization_mode: OptimizationMode,
     n_jobs=1
 ):
-    metrics = [BalancedAccuracy(), F1ScoreMacro()]
-
-    train_data, val_data, _ = load_octdl_data(class_list)
-    balancing_weights = get_balancing_weights(class_list)
-
-    loss_fns = [
-        nn.CrossEntropyLoss(),
-        nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
+    loss_fns_types: list[LossFnType] = [
+        'CrossEntropy',
+        'WeightedCrossEntropy'
     ]
-    for loss_fn in loss_fns:
+    for loss_fn_type in loss_fns_types:
         study_name = get_study_name(
-            class_list, model_type, transfer_learning, loss_fn, optimization_mode)
+            class_list, model_type, transfer_learning, loss_fn_type, optimization_mode)
         run_study(
             study_name=study_name,
             classes=class_list,
             model_type=model_type,
-            train_data=train_data,
-            val_data=val_data,
             transfer_learning=transfer_learning,
-            loss_fn=loss_fn,
-            metrics=metrics,
+            loss_fn_type=loss_fn_type,
             optimization_mode=optimization_mode,
             n_trials=100,
             n_jobs=n_jobs
@@ -227,4 +230,5 @@ if __name__ == "__main__":
     class_list_str = args.class_list.split(',')
     class_list = [getattr(OCTDLClass, cls) for cls in class_list_str]
 
-    main(args.model_type, class_list, transfer_learning, args.optimization_mode, args.n_jobs)
+    main(args.model_type, class_list, transfer_learning,
+         args.optimization_mode, args.n_jobs)

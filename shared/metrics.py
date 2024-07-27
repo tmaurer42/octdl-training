@@ -3,14 +3,22 @@ from sklearn import metrics
 
 
 def balanced_accuracy(predictions, actual_values):
-    recalls = metrics.recall_score(actual_values, predictions, average=None)
+    recalls = metrics.recall_score(
+        y_true=actual_values,
+        y_pred=predictions,
+        average=None
+    )
 
     balanced_acc = recalls.mean()
     return balanced_acc
 
 
 def f1_score_macro(predictions, actual_values):
-    return metrics.f1_score(actual_values, predictions, average='macro')
+    return metrics.f1_score(
+        y_true=actual_values,
+        y_pred=predictions,
+        average='macro'
+    )
 
 
 def balanced_accuracy_from_confustion_matrix(cm):
@@ -32,10 +40,10 @@ class CategoricalMetric(abc.ABC):
     all_preds: list[int]
     all_targets: list[int]
 
-    @property
+    @staticmethod
     @abc.abstractmethod
-    def name(self) -> str:
-        return None 
+    def name() -> str:
+        return None
 
     def __init__(self):
         self.all_preds = []
@@ -66,14 +74,16 @@ class BalancedAccuracy(CategoricalMetric):
 
     def __init__(self):
         super().__init__()
-        self._name = "balanced_accuracy"
 
-    @property
-    def name(self) -> str:
-        return self._name
+    @staticmethod
+    def name() -> str:
+        return "balanced_accuracy"
 
     def calculate_metric(self) -> float:
-        return balanced_accuracy(self.all_targets, self.all_preds)
+        return balanced_accuracy(
+            predictions=self.all_preds,
+            actual_values=self.all_targets
+        )
 
 
 class F1ScoreMacro(CategoricalMetric):
@@ -83,11 +93,18 @@ class F1ScoreMacro(CategoricalMetric):
 
     def __init__(self):
         super().__init__()
-        self._name = "f1_score_macro"
 
-    @property
-    def name(self) -> str:
-        return self._name
+    @staticmethod
+    def name() -> str:
+        return "f1_score_macro"
 
     def calculate_metric(self) -> float:
-        return f1_score_macro(self.all_targets, self.all_preds)
+        return f1_score_macro(
+            predictions=self.all_preds,
+            actual_values=self.all_targets
+        )
+
+
+if __name__ == "__main__":
+    cm = [[171, 9], [2, 47]]
+    print(balanced_accuracy_from_confustion_matrix(cm))

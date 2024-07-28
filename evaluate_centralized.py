@@ -71,6 +71,14 @@ def evaluate(
     optimization_mode: OptimizationMode,
     comparison_metric: type[CategoricalMetric]
 ):
+    print()
+    print(
+        f">> Evaluation on testset for [{classes_str}] using model {model_type}",
+        f"with{'' if transfer_learning else 'out'} transfer learning."
+    )
+    print(f"Better loss function chosen by the models {comparison_metric.name()}")
+    print(f"Optimization mode: {optimization_mode}")
+    
     study_ce_loss = get_study(
         classes, model_type, transfer_learning, 'CrossEntropy', optimization_mode)
     study_weighted_ce_loss = get_study(
@@ -113,18 +121,12 @@ def evaluate(
         all_labels, all_preds, average='binary', pos_label=0)
 
     classes_str = ','.join([cls.name for cls in classes])
-    print()
-    print(
-        f">> Evaluation on testset for [{classes_str}] using model {model_type}",
-        f"with{'' if transfer_learning else 'out'} transfer learning."
-    )
-    print(f"Better loss function chosen by the models {comparison_metric.name()}")
-    print(f"Optimization mode: {optimization_mode}")
+    
     print(f"Study name: {best_study.study_name}")
     print()
-    print(f"Balanced Accuracy: {bal_acc}")
-    print(f"F1 Score averaged: {f1score_macro}")
-    print(f"F1 Score for AMD: {f1score_amd}")
+    print(f"Balanced Accuracy: {bal_acc:0.4f}")
+    print(f"F1 Score averaged: {f1score_macro:0.4f}")
+    print(f"F1 Score for AMD: {f1score_amd:0.4f}")
     print()
 
 
@@ -138,6 +140,8 @@ def main():
     evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'EfficientNetV2', transfer_learning=True,
              optimization_mode='minimize_loss', comparison_metric=BalancedAccuracy)
 
+    print("_"* 40)
+
     evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=False,
              optimization_mode='minimize_loss', comparison_metric=F1ScoreMacro)
     evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=True,
@@ -146,6 +150,8 @@ def main():
              optimization_mode='minimize_loss', comparison_metric=F1ScoreMacro)
     evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'EfficientNetV2', transfer_learning=True,
              optimization_mode='minimize_loss', comparison_metric=F1ScoreMacro)
+
+    print("_"* 40)
 
     evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=False,
              optimization_mode='maximize_f1_macro', comparison_metric=F1ScoreMacro)

@@ -34,7 +34,7 @@ def get_study(
         classes,
         model_type,
         transfer_learning=transfer_learning,
-        loss=loss_fn_type,
+        loss_fn_type=loss_fn_type,
         optimization_mode=optimization_mode
     )
 

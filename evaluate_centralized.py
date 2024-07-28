@@ -70,15 +70,7 @@ def evaluate(
     transfer_learning: bool,
     optimization_mode: OptimizationMode,
     comparison_metric: type[CategoricalMetric]
-):
-    print()
-    print(
-        f">> Evaluation on testset for [{classes_str}] using model {model_type}",
-        f"with{'' if transfer_learning else 'out'} transfer learning."
-    )
-    print(f"Better loss function chosen by the models {comparison_metric.name()}")
-    print(f"Optimization mode: {optimization_mode}")
-    
+):  
     study_ce_loss = get_study(
         classes, model_type, transfer_learning, 'CrossEntropy', optimization_mode)
     study_weighted_ce_loss = get_study(
@@ -122,6 +114,13 @@ def evaluate(
 
     classes_str = ','.join([cls.name for cls in classes])
     
+    print()
+    print(
+        f">> Evaluation on testset for [{classes_str}] using model {model_type}",
+        f"with{'' if transfer_learning else 'out'} transfer learning."
+    )
+    print(f"Better loss function chosen by the models {comparison_metric.name()}")
+    print(f"Optimization mode: {optimization_mode}")
     print(f"Study name: {best_study.study_name}")
     print()
     print(f"Balanced Accuracy: {bal_acc:0.4f}")

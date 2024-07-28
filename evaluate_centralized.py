@@ -50,7 +50,7 @@ def get_study_with_best_metric(
     studies: list[optuna.Study],
     metric: type[CategoricalMetric]
 ) -> optuna.Study:
-    best_metric_val = None
+    best_metric_val = 0.0
     best_study: optuna.Study = None
 
     for study in studies:

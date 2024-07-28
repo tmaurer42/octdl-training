@@ -77,7 +77,7 @@ def evaluate(
         classes, model_type, transfer_learning, 'WeightedCrossEntropy', optimization_mode)
 
     best_study: optuna.Study = get_study_with_best_metric(
-        [study_ce_loss, study_weighted_ce_loss, comparison_metric])
+        [study_ce_loss, study_weighted_ce_loss], comparison_metric)
     study_name = best_study.study_name
     best_trial = best_study.best_trial
 

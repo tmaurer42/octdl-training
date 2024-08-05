@@ -1,23 +1,18 @@
 import os
 import argparse
-from typing import Literal, get_args
+from typing import get_args
 
 import optuna
 import torch
 from torch import nn, optim
-from torch.utils.data import DataLoader
 
-from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms
-from shared.metrics import BalancedAccuracy, F1ScoreMacro, CategoricalMetric
-from train_centralized import train, TrainEpochResult
+from shared.data import OCTDLClass, get_balancing_weights, prepare_dataset
+from shared.metrics import BalancedAccuracy, F1ScoreMacro
+from shared.training import EarlyStopping, set_device, train, TrainEpochResult, OptimizationMode, LossFnType
 from shared.model import ModelType, get_model_by_type
 
 import faulthandler
 faulthandler.enable()
-
-
-OptimizationMode = Literal["minimize_loss", "maximize_f1_macro"]
-LossFnType = Literal["CrossEntropy", "WeightedCrossEntropy"]
 
 
 centralized_chkpts_path = os.path.join(
@@ -53,6 +48,8 @@ def run_study(
     n_jobs: int,
     n_trials: int = 100,
 ):
+    device = set_device()
+
     def objective(trial: optuna.Trial):
         image_size = 224
         epochs = 100
@@ -67,19 +64,12 @@ def run_study(
         dropout = trial.suggest_float("dropout", 0.0, 0.5, step=0.1)
 
         # Initialize data
-        train_data, val_data, _ = load_octdl_data(classes)
-
-        base_transform, train_transform = get_transforms(image_size)
-        train_ds = OCTDLDataset(
-            train_data,
-            classes,
-            transform=train_transform if apply_augmentation else base_transform
+        train_loader, val_loader, _ = prepare_dataset(
+            classes=classes,
+            augmentation=apply_augmentation,
+            batch_size=batch_size,
+            img_target_size=image_size
         )
-        val_ds = OCTDLDataset(val_data, classes, transform=base_transform)
-
-        train_loader = DataLoader(
-            train_ds, batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
         # Initialize model
         model = get_model_by_type(
@@ -104,9 +94,12 @@ def run_study(
             optimizer=adam,
             loss_fn=loss_fn,
             metrics=metrics,
-            patience=5,
-            from_epoch=20,
-            print_batch_info=False
+            early_stopping=EarlyStopping(
+                from_epoch=20,
+                patience=5
+            ),
+            print_batch_info=False,
+            device=device
         )
 
         current_epoch = 1

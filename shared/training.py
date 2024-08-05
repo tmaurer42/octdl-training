@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Literal, Optional
 
 import torch
 from torch import nn
@@ -11,6 +11,16 @@ from shared.metrics import CategoricalMetric
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
+
+
+OptimizationMode = Literal["minimize_loss", "maximize_f1_macro"]
+LossFnType = Literal["CrossEntropy", "WeightedCrossEntropy"]
+
+
+@dataclass
+class EarlyStopping:
+    patience: int
+    from_epoch: int
 
 
 @dataclass
@@ -107,7 +117,7 @@ def evaluate(
         device (torch.device): Device to run the evaluation on.
 
     Returns:
-        tuple: (computed_metrics, running_loss, confusion_matrix)
+        tuple: (computed_metrics, avg_loss, confusion_matrix)
     """
     model.eval()
     running_loss = 0.0
@@ -133,26 +143,28 @@ def evaluate(
             for metric in metrics:
                 metric.update(preds, labels)
 
+    avg_loss = running_loss / len(data_loader)
+
     computed_metrics = [metric.compute() for metric in metrics]
     for metric in metrics:
         metric.reset()
 
     cm = confusion_matrix(all_labels, all_preds)
 
-    return computed_metrics, running_loss, cm
+    return computed_metrics, avg_loss, cm
 
 
 def train(
     model: nn.Module,
     epochs: int,
     train_loader: DataLoader,
-    val_loader: DataLoader,
     loss_fn,
     optimizer: torch.optim.Optimizer,
-    metrics: list[CategoricalMetric] = [],
-    patience: int = 5,
-    from_epoch: int = 10,
-    print_batch_info=True
+    device: torch.device,
+    metrics: Optional[list[CategoricalMetric]] = [],
+    val_loader: Optional[DataLoader] = None,
+    early_stopping: Optional[EarlyStopping] = None,
+    print_batch_info = True
 ):
     """
     Train the model with early stopping based on validation loss.
@@ -161,20 +173,18 @@ def train(
         model (nn.Module): The model to train.
         epochs (int): Number of epochs to train.
         train_loader (DataLoader): DataLoader for the training dataset.
-        val_loader (DataLoader): DataLoader for the validation dataset.
+        val_loader (DataLoader): DataLoader for the validation dataset. If val_loader is None, skip the evaluation step and therefore don't use early stopping.
         loss_fn: Loss function.
         optimizer (torch.optim.Optimizer): Optimizer for updating the model parameters.
         metrics (List[CategoricalMetric]): List of metrics to compute during training. Default is an empty list.
         metric_names (List[str]): List of metric names corresponding to the metrics. Default is an empty list.
-        patience (int): Number of epochs to wait for improvement in validation loss before stopping. Default is 5.
-        from_epoch (int): Number of epochs after which to start early stopping. Default is 10.
+        early_stopping (EarlyStopping): The early stopping strategy to use. Has no effect, if val_loader is None.
         print_batch_info (bool): If True, print batch information during training. Default is True.
 
 
     Returns:
-        A generator yielding the TrainEpochResult each epoch.
+        A generator yielding the TrainEpochResult each epoch. If validation is skipped, return None instead
     """
-    device = set_device()
     model.to(device)
     loss_fn.to(device)
 
@@ -188,7 +198,7 @@ def train(
         model.train()
         running_loss = 0.0
 
-        for data in train_loader:
+        for i, data in enumerate(train_loader):
             images, labels = data
             images = images.to(device)
             labels = labels.to(device)
@@ -200,41 +210,48 @@ def train(
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
+            batch_loss = loss.item()
+            running_loss += batch_loss
 
             preds = preds.cpu().numpy()
             labels = labels.cpu().numpy()
             train_metrics = [metric.update(preds, labels) for metric in metrics]
 
+            train_loss = running_loss / (i + 1)
             if print_batch_info:
                 print_stats(metric_names, train_metrics,
-                            running_loss, None, None, replace_ln=True)
+                            train_loss, None, None, replace_ln=True)
         
+        train_loss = running_loss / len(train_loader)
+
         train_metrics = [metric.compute() for metric in metrics]
         for metric in metrics:
             metric.reset()
 
-        val_metrics, val_loss, val_confusion_matrix = evaluate(
-            model, val_loader, loss_fn, metrics, device)
+        epoch_result, val_metrics, val_loss = None, None, None
+        if val_loader is not None:
+            val_metrics, val_loss, val_confusion_matrix = evaluate(
+                model, val_loader, loss_fn, metrics, device)
 
-        metrics_dict = {name: val for name, val in zip(metric_names, val_metrics)}
-        epoch_result = TrainEpochResult(
-            metrics_dict, val_loss, val_confusion_matrix, model.state_dict())
+            metrics_dict = {name: val for name, val in zip(metric_names, val_metrics)}
+            epoch_result = TrainEpochResult(
+                metrics_dict, val_loss, val_confusion_matrix, model.state_dict())
+        
+        yield epoch_result
 
         print_stats(
             metric_names,
-            train_metrics, running_loss,
+            train_metrics, train_loss,
             val_metrics, val_loss,
             replace_ln=False
         )
 
-        yield epoch_result
+        if early_stopping is not None and val_loader is not None:
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                early_stopping_counter = 0
+            elif epoch >= early_stopping.from_epoch:
+                early_stopping_counter += 1
 
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            early_stopping_counter = 0
-        elif epoch >= from_epoch:
-            early_stopping_counter += 1
-
-        if early_stopping_counter >= patience:
-            break
+            if early_stopping_counter >= early_stopping.patience:
+                break

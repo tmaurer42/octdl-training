@@ -7,11 +7,11 @@ import torch.utils
 import torch.utils.data
 from sklearn import metrics
 
-from experiments_centralized import LossFnType, get_study_name, load_weights, OptimizationMode
+from experiments_centralized import get_study_name, load_weights
 from shared.data import OCTDLClass, OCTDLDataset, get_transforms, load_octdl_data
 from shared.metrics import BalancedAccuracy, CategoricalMetric, F1ScoreMacro, balanced_accuracy
 from shared.model import ModelType, get_model_by_type
-from train_centralized import set_device
+from shared.training import set_device, LossFnType, OptimizationMode
 
 
 def get_result_db_name(

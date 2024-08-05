@@ -3,7 +3,7 @@ from enum import Enum
 import functools
 
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from torchvision import io
 from torchvision.io.image import ImageReadMode
 from torchvision import transforms
@@ -88,10 +88,70 @@ def _get_image_label_pairs(
     )
 
 
+def prepare_dataset(
+    classes: list[OCTDLClass],
+    augmentation: bool,
+    batch_size: int,
+    img_target_size = 224,
+    ds_dir: str = './OCTDL',
+    labels_file: str = 'OCTDL_labels.csv'
+):
+    train_loaders, val_loaders, test_loader = prepare_dataset_partitioned(
+        classes=classes,
+        augmentation=augmentation,
+        batch_size=batch_size,
+        n_partitions=1,
+        img_target_size=img_target_size,
+        ds_dir=ds_dir,
+        labels_file=labels_file
+    )
+    train_loader, val_loader = train_loaders[0], val_loaders[0]
+
+    return train_loader, val_loader, test_loader
+
+
+def prepare_dataset_partitioned(
+    classes: list[OCTDLClass],
+    augmentation: bool,
+    batch_size: int,
+    n_partitions: int,
+    img_target_size = 224,
+    ds_dir: str = './OCTDL',
+    labels_file: str = 'OCTDL_labels.csv'
+) -> tuple[list[DataLoader], list[DataLoader], DataLoader]:
+    partitions, test_data = load_octdl_data(classes, ds_dir, labels_file, n_partitions)
+
+    base_transform, train_transform = get_transforms(img_target_size)
+
+    train_loaders = []
+    val_loaders = []
+    for partition in partitions:
+        (train_data, val_data) = partition
+        train_ds = OCTDLDataset(
+            train_data,
+            classes,
+            transform=train_transform if augmentation else base_transform
+        )
+        val_ds = OCTDLDataset(val_data, classes, transform=base_transform)
+        test_ds = OCTDLDataset(test_data, classes, transform=base_transform)
+
+        train_loader = DataLoader(
+            train_ds, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
+
+        train_loaders.append(train_loader)
+        val_loaders.append(val_loader)
+    
+    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
+
+    return train_loaders, val_loaders, test_loader
+
+
 def load_octdl_data(
     classes: list[OCTDLClass],
     ds_dir: str = './OCTDL',
-    labels_file: str = 'OCTDL_labels.csv'
+    labels_file: str = 'OCTDL_labels.csv',
+    n_partitions: int = 1
 ):
     """
     Load OCTDL dataset containing the given classes,
@@ -106,12 +166,15 @@ def load_octdl_data(
             Directory containing the dataset. Default is './OCTDL'.
         labels_file (str): 
             Path to the labels CSV file. Default is './OCTDL_labels.csv'.
+        n_partitions (int):
+            The number of partitions to split the train and validation data into.
 
     Returns:
-        Tuple containing: (train_data, val_data, test_data)
+        Tuple containing:
+        - test_data: List of (image_path, label) for the test set.
+        - List of tuples: Each tuple contains (train_data, val_data) for one partition.
     """
     labels = [cls.name for cls in classes]
-
     labels_df = pd.read_csv(os.path.join(ds_dir, labels_file))
     labels_df = labels_df.query('disease in @labels')
 
@@ -133,19 +196,29 @@ def load_octdl_data(
 
     patient_ids = list(patient_to_images.keys())
 
-    # Split patients into train, val and test sets
-    train_ids, val_test_ids = model_selection.train_test_split(
-        patient_ids, test_size=0.3, random_state=42
-    )
-    val_ids, test_ids = model_selection.train_test_split(
-        val_test_ids, test_size=0.5, random_state=42
+    train_val_ids, test_ids = model_selection.train_test_split(
+        patient_ids, test_size=0.15, random_state=42
     )
 
-    train_data = _get_image_label_pairs(train_ids, patient_to_images)
-    val_data = _get_image_label_pairs(val_ids, patient_to_images)
     test_data = _get_image_label_pairs(test_ids, patient_to_images)
 
-    return train_data, val_data, test_data
+    np.random.seed(42)
+    np.random.shuffle(train_val_ids)
+    partitions = np.array_split(train_val_ids, n_partitions)
+
+    all_partitions = []
+    for partition_ids in partitions:
+        # Split patients into train and val sets within each partition
+        train_ids, val_ids = model_selection.train_test_split(
+            partition_ids, test_size=0.177, random_state=42
+        )
+
+        train_data = _get_image_label_pairs(train_ids, patient_to_images)
+        val_data = _get_image_label_pairs(val_ids, patient_to_images)
+
+        all_partitions.append((train_data, val_data))
+
+    return all_partitions, test_data
 
 
 def get_balancing_weights(

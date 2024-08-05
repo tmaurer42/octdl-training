@@ -2,17 +2,14 @@ import json
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from experiments_centralized import LossFnType
-from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms
+from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms, prepare_dataset
 from shared.metrics import BalancedAccuracy, F1ScoreMacro
 from shared.model import get_efficientnet, get_mobilenet, get_model_by_type
-from train_centralized import train
+from shared.training import EarlyStopping, evaluate, set_device, train, LossFnType
 
 if __name__ == "__main__":
     classes = [OCTDLClass.AMD, OCTDLClass.NO]
-    train_data, val_data, test_data = load_octdl_data(
-        classes
-    )
+    
     balancing_weight = get_balancing_weights(
         classes
     )
@@ -27,38 +24,44 @@ if __name__ == "__main__":
     apply_augmentation = False
     dropout = 0.2
 
-    base_transform, train_transform = get_transforms(image_size)
-    train_ds = OCTDLDataset(
-        train_data,
-        classes,
-        transform=train_transform if apply_augmentation else base_transform
+    train_loader, val_loader, _ = prepare_dataset(
+        classes=classes,
+        augmentation=apply_augmentation,
+        batch_size=batch_size,
+        img_target_size=image_size
     )
-    val_ds = OCTDLDataset(val_data, classes, transform=base_transform)
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
+    print(len(train_loader.dataset))
+    print(len(val_loader.dataset))
+    print(len(_.dataset))
 
     model = get_model_by_type(
         "MobileNetV2", True, classes, dropout)
 
     adam = optim.Adam(model.parameters(), learning_rate)
 
+    device = set_device()
+
     train_gen = train(
         model,
         train_loader=train_loader,
-        val_loader=val_loader,
+        #val_loader=val_loader,
         epochs=epochs,
         optimizer=adam,
         loss_fn=loss_fn,
         metrics=metrics,
-        patience=5,
-        from_epoch=20,
+        device=device
+        #early_stopping=EarlyStopping(
+        #    patience=5,
+        #    from_epoch=20
+        #)
     )
 
-    res = None
     for epoch_result in train_gen:
-        res = epoch_result
-        print(epoch_result.val_loss)
-        print(epoch_result.val_metrics)
+        if epoch_result is not None:
+            print(epoch_result.val_loss)
+            print(epoch_result.val_metrics)
 
-    print(json.dumps(res.val_confusion_matrix.tolist()))
+    metrics, loss, cm = evaluate(model, val_loader, loss_fn, metrics, device=set_device())
+
+    print(metrics)

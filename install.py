@@ -9,7 +9,7 @@ def install_requirements():
                           'install', '-r', 'requirements.txt'])
 
 
-def install_centralized():
+def install_pytorch():
     os_name = platform.system()
     if os_name == 'Linux':
         print("Installing pytorch and torchvision with CUDA 11.6 support...")
@@ -26,26 +26,8 @@ def install_centralized():
         sys.exit(1)
 
 
-def install_federated():
-    subprocess.check_call(
-        [sys.executable, '-m', 'pip', 'install', 'plato-learn'])
-
-
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: install.py [centralized|federated]")
-        sys.exit(1)
-
-    mode = sys.argv[1].lower()
-
-    if mode == 'centralized':
-        install_centralized()
-    elif mode == 'federated':
-        install_federated()
-    else:
-        print("Invalid argument. Use 'centralized' or 'federated'")
-        sys.exit(1)
-
+    install_pytorch()
     install_requirements()
 
 

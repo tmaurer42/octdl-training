@@ -12,6 +12,8 @@ from shared.training import EarlyStopping, set_device, train, TrainEpochResult, 
 from shared.model import ModelType, get_model_by_type
 
 import faulthandler
+
+from shared.utils import delete_except, get_study_name
 faulthandler.enable()
 
 
@@ -82,7 +84,8 @@ def run_study(
         if loss_fn_type == 'CrossEntropy':
             loss_fn = nn.CrossEntropyLoss()
         elif loss_fn_type == 'WeightedCrossEntropy':
-            loss_fn = nn.CrossEntropyLoss(weight=balancing_weights, label_smoothing=0.1)
+            loss_fn = nn.CrossEntropyLoss(
+                weight=balancing_weights, label_smoothing=0.1)
 
         metrics = [BalancedAccuracy(), F1ScoreMacro()]
 
@@ -137,8 +140,6 @@ def run_study(
 
         return best_value
 
-    classes_str = '-'.join([cls.name for cls in classes])
-
     direction = None
     if optimization_mode == 'minimize_loss':
         direction = optuna.study.StudyDirection.MINIMIZE
@@ -146,7 +147,7 @@ def run_study(
         direction = optuna.study.StudyDirection.MAXIMIZE
 
     db_path = os.path.join('results_centralized',
-                           f"results_{model_type}_{classes_str}_{optimization_mode}.sqlite3")
+                           f"results.sqlite3")
 
     if not os.path.exists('results_centralized'):
         os.makedirs('results_centralized')
@@ -159,46 +160,34 @@ def run_study(
 
     study.optimize(objective, n_trials, n_jobs=n_jobs)
 
+    delete_except(
+        os.path.join(centralized_chkpts_path, study_name),
+        f"{study.best_trial.number}.pth"
+    )
+
     return study
-
-
-def get_study_name(
-    classes: list[OCTDLClass],
-    model: ModelType,
-    transfer_learning: bool,
-    loss_fn_type: LossFnType,
-    optimization_mode: OptimizationMode
-):
-    classes_str = f"{'-'.join([cls.name for cls in classes])}"
-    transfer_learning_str = "transfer" if transfer_learning else "no-transfer"
-
-    return f"{classes_str}_{model}_{optimization_mode}_{transfer_learning_str}_{loss_fn_type}"
 
 
 def main(
     model_type: ModelType,
     class_list: list[OCTDLClass],
     transfer_learning: bool,
+    loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,
     n_jobs=1
 ):
-    loss_fns_types: list[LossFnType] = [
-        'CrossEntropy',
-        'WeightedCrossEntropy'
-    ]
-    for loss_fn_type in loss_fns_types:
-        study_name = get_study_name(
-            class_list, model_type, transfer_learning, loss_fn_type, optimization_mode)
-        run_study(
-            study_name=study_name,
-            classes=class_list,
-            model_type=model_type,
-            transfer_learning=transfer_learning,
-            loss_fn_type=loss_fn_type,
-            optimization_mode=optimization_mode,
-            n_trials=100,
-            n_jobs=n_jobs
-        )
+    study_name = get_study_name(
+        class_list, model_type, transfer_learning, loss_fn_type, optimization_mode)
+    run_study(
+        study_name=study_name,
+        classes=class_list,
+        model_type=model_type,
+        transfer_learning=transfer_learning,
+        loss_fn_type=loss_fn_type,
+        optimization_mode=optimization_mode,
+        n_trials=100,
+        n_jobs=n_jobs
+    )
 
 
 if __name__ == "__main__":

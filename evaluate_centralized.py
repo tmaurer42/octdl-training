@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 import os
+from typing import Optional
 
 import optuna
 import torch
@@ -8,10 +10,20 @@ import torch.utils.data
 from sklearn import metrics
 
 from experiments_centralized import get_study_name, load_weights
+from federated_learning.server import FLStrategy
+from federated_learning.optimization import load_weights as load_weigths_fl
 from shared.data import OCTDLClass, OCTDLDataset, get_transforms, load_octdl_data
 from shared.metrics import BalancedAccuracy, CategoricalMetric, F1ScoreMacro, balanced_accuracy
 from shared.model import ModelType, get_model_by_type
 from shared.training import set_device, LossFnType, OptimizationMode
+from shared.utils import get_fl_study_name
+
+
+@dataclass
+class FLEvalParameters:
+    strategy: FLStrategy
+    n_clients: int
+    n_epochs: int
 
 
 def get_result_db_name(
@@ -28,40 +40,36 @@ def get_study(
     model_type: ModelType,
     transfer_learning: bool,
     loss_fn_type: LossFnType,
-    optimization_mode: OptimizationMode
+    optimization_mode: OptimizationMode,
+    fl_eval_parameters: Optional[FLEvalParameters] = None
 ):
-    study_name = get_study_name(
-        classes,
-        model_type,
-        transfer_learning=transfer_learning,
-        loss_fn_type=loss_fn_type,
-        optimization_mode=optimization_mode
-    )
+    if fl_eval_parameters is not None:
+        study_name = get_fl_study_name(
+            classes,
+            model_type,
+            transfer_learning=transfer_learning,
+            loss_fn_type=loss_fn_type,
+            optimization_mode=optimization_mode,
+            n_clients=fl_eval_parameters.n_clients,
+            n_epochs=fl_eval_parameters.n_epochs
+        )
+        results_path = f"results_{fl_eval_parameters.strategy}"
+    else:
+        study_name = get_study_name(
+            classes,
+            model_type,
+            transfer_learning=transfer_learning,
+            loss_fn_type=loss_fn_type,
+            optimization_mode=optimization_mode
+        )
+        results_path = "results_centralized"
 
-    db_name = get_result_db_name(model_type, classes, optimization_mode)
-    db_url = f"sqlite:///{os.path.join('results_centralized', db_name)}"
+    db_name = "results.sqlite3"
+    db_url = f"sqlite:///{os.path.join(results_path, db_name)}"
     study: optuna.Study = optuna.load_study(
         study_name=study_name, storage=db_url)
 
     return study
-
-
-def get_study_with_best_metric(
-    studies: list[optuna.Study],
-    metric: type[CategoricalMetric]
-) -> optuna.Study:
-    best_metric_val = 0.0
-    best_study: optuna.Study = None
-
-    for study in studies:
-        best_trial = study.best_trial
-
-        metric_val = best_trial.user_attrs['metrics'][metric.name()]
-        if metric_val > best_metric_val:
-            best_metric_val = metric_val
-            best_study = study
-
-    return best_study
 
 
 def evaluate(
@@ -69,17 +77,15 @@ def evaluate(
     model_type: ModelType,
     transfer_learning: bool,
     optimization_mode: OptimizationMode,
-    comparison_metric: type[CategoricalMetric]
+    loss_fn_type: LossFnType,
+    fl_eval_parameters: Optional[FLEvalParameters] = None
 ):  
-    study_ce_loss = get_study(
-        classes, model_type, transfer_learning, 'CrossEntropy', optimization_mode)
-    study_weighted_ce_loss = get_study(
-        classes, model_type, transfer_learning, 'WeightedCrossEntropy', optimization_mode)
+    study = get_study(
+        classes, model_type, transfer_learning, 
+        loss_fn_type, optimization_mode, fl_eval_parameters)
 
-    best_study: optuna.Study = get_study_with_best_metric(
-        [study_ce_loss, study_weighted_ce_loss], comparison_metric)
-    study_name = best_study.study_name
-    best_trial = best_study.best_trial
+    study_name = study.study_name
+    best_trial = study.best_trial
 
     _, _, test_data = load_octdl_data(classes)
     base_transform, _ = get_transforms(224)
@@ -88,7 +94,14 @@ def evaluate(
         test_dataset, batch_size=128, shuffle=False)
 
     model = get_model_by_type(model_type, transfer_learning, classes, 0.0)
-    load_weights(model, study_name, best_trial.number)
+
+    if fl_eval_parameters is None:
+        load_weights(model, study_name, best_trial.number)
+    else:
+        study_values = study.best_trial.intermediate_values
+        best_round = min(study_values, key=study_values.get) + 1
+        load_weigths_fl(fl_eval_parameters.strategy, model, study_name,
+            study.best_trial, best_round)
 
     all_preds = []
     all_labels = []
@@ -119,9 +132,13 @@ def evaluate(
         f">> Evaluation on testset for [{classes_str}] using model {model_type}",
         f"with{'' if transfer_learning else 'out'} transfer learning."
     )
-    print(f"Better loss function chosen by the models {comparison_metric.name()}")
+    if fl_eval_parameters is not None:
+        print(
+            f"Federated Learning Strategy: {fl_eval_parameters.strategy}.",
+            f"n_clients: {fl_eval_parameters.n_clients}, n_epochs: {fl_eval_parameters.n_epochs}"
+        )
     print(f"Optimization mode: {optimization_mode}")
-    print(f"Study name: {best_study.study_name}")
+    print(f"Study name: {study.study_name}")
     print()
     print(f"Balanced Accuracy: {bal_acc:0.4f}")
     print(f"F1 Score averaged: {f1score_macro:0.4f}")
@@ -130,36 +147,14 @@ def evaluate(
 
 
 def main():
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=False,
-             optimization_mode='minimize_loss', comparison_metric=BalancedAccuracy)
     evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=True,
-             optimization_mode='minimize_loss', comparison_metric=BalancedAccuracy)
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'MobileNetV2', transfer_learning=True,
-             optimization_mode='minimize_loss', comparison_metric=BalancedAccuracy)
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'EfficientNetV2', transfer_learning=True,
-             optimization_mode='minimize_loss', comparison_metric=BalancedAccuracy)
-
-    print("_"* 40)
-
+             optimization_mode='minimize_loss', loss_fn_type='CrossEntropy')
     evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=False,
-             optimization_mode='minimize_loss', comparison_metric=F1ScoreMacro)
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=True,
-             optimization_mode='minimize_loss', comparison_metric=F1ScoreMacro)
+             optimization_mode='minimize_loss', loss_fn_type='CrossEntropy')
     evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'MobileNetV2', transfer_learning=True,
-             optimization_mode='minimize_loss', comparison_metric=F1ScoreMacro)
+             optimization_mode='minimize_loss', loss_fn_type='CrossEntropy')
     evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'EfficientNetV2', transfer_learning=True,
-             optimization_mode='minimize_loss', comparison_metric=F1ScoreMacro)
-
-    print("_"* 40)
-
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=False,
-             optimization_mode='maximize_f1_macro', comparison_metric=F1ScoreMacro)
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'ResNet18', transfer_learning=True,
-             optimization_mode='maximize_f1_macro', comparison_metric=F1ScoreMacro)
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'MobileNetV2', transfer_learning=True,
-             optimization_mode='maximize_f1_macro', comparison_metric=F1ScoreMacro)
-    evaluate([OCTDLClass.AMD, OCTDLClass.NO], 'EfficientNetV2', transfer_learning=True,
-             optimization_mode='maximize_f1_macro', comparison_metric=F1ScoreMacro)
+             optimization_mode='minimize_loss', loss_fn_type='CrossEntropy')
 
 
 if __name__ == "__main__":

@@ -2,4 +2,5 @@ scikit-learn
 scikit-image
 pandas
 optuna
+flwr[simulation]
 numpy==1.26.4

@@ -102,7 +102,7 @@ def print_stats(
 def evaluate(
     model: nn.Module,
     data_loader: DataLoader,
-    loss_fn,
+    loss_fn: nn.CrossEntropyLoss,
     metrics: list[CategoricalMetric],
     device: torch.device
 ):
@@ -119,7 +119,10 @@ def evaluate(
     Returns:
         tuple: (computed_metrics, avg_loss, confusion_matrix)
     """
+    model.to(device)
+    loss_fn.to(device)
     model.eval()
+    
     running_loss = 0.0
     all_preds = []
     all_labels = []
@@ -177,7 +180,6 @@ def train(
         loss_fn: Loss function.
         optimizer (torch.optim.Optimizer): Optimizer for updating the model parameters.
         metrics (List[CategoricalMetric]): List of metrics to compute during training. Default is an empty list.
-        metric_names (List[str]): List of metric names corresponding to the metrics. Default is an empty list.
         early_stopping (EarlyStopping): The early stopping strategy to use. Has no effect, if val_loader is None.
         print_batch_info (bool): If True, print batch information during training. Default is True.
 

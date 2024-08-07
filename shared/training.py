@@ -167,7 +167,8 @@ def train(
     metrics: Optional[list[CategoricalMetric]] = [],
     val_loader: Optional[DataLoader] = None,
     early_stopping: Optional[EarlyStopping] = None,
-    print_batch_info = True
+    print_batch_info = True,
+    print_epoch_info = True
 ):
     """
     Train the model with early stopping based on validation loss.
@@ -196,7 +197,8 @@ def train(
     early_stopping_counter = 0
 
     for epoch in range(epochs):
-        print(f"Epoch {epoch + 1}")
+        if print_epoch_info:
+            print(f"Epoch {epoch + 1}")
         model.train()
         running_loss = 0.0
 
@@ -241,12 +243,13 @@ def train(
         
         yield epoch_result
 
-        print_stats(
-            metric_names,
-            train_metrics, train_loss,
-            val_metrics, val_loss,
-            replace_ln=False
-        )
+        if print_epoch_info:
+            print_stats(
+                metric_names,
+                train_metrics, train_loss,
+                val_metrics, val_loss,
+                replace_ln=False
+            )
 
         if early_stopping is not None and val_loader is not None:
             if val_loss < best_val_loss:

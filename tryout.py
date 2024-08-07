@@ -20,10 +20,10 @@ if __name__ == "__main__":
             'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
     run_fl_simulation(
         n_clients=10,
-        n_rounds=2,
+        n_rounds=5,
         dataset_config=DatasetConfig(
             augmentation=False,
-            batch_size=32,
+            batch_size=8,
             classes=[OCTDLClass.AMD, OCTDLClass.NO]
         ),
         client_config=ClientConfig(
@@ -31,7 +31,7 @@ if __name__ == "__main__":
             dropout=0.2,
             epochs=5,
             loss_fn_type='CrossEntropy',
-            lr=0.002,
+            lr=0.0005,
             model_type='MobileNetV2',
             transfer_learning=True,
             metrics=metrics

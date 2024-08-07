@@ -85,7 +85,8 @@ class FlowerClient(fl.client.NumPyClient):
             loss_fn=loss_fn,
             optimizer=optim,
             device=self.device,
-            print_batch_info=False
+            print_batch_info=False,
+            print_epoch_info=False
         )
         [... for _ in train_gen]
 

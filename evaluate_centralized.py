@@ -1,5 +1,5 @@
 from shared.data import OCTDLClass
-from shared.training import evaluate
+from evaluate import evaluate
 
 
 def main():

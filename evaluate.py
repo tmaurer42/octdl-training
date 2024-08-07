@@ -9,7 +9,7 @@ import torch.utils
 import torch.utils.data
 from sklearn import metrics
 
-from experiments_centralized import get_study_name, load_weights
+from centralized.optimization import get_study_name, load_weights
 from federated_learning.server import FLStrategy
 from federated_learning.optimization import load_weights as load_weigths_fl
 from shared.data import OCTDLClass, OCTDLDataset, get_transforms, load_octdl_data, prepare_dataset

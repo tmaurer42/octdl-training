@@ -11,35 +11,7 @@ from shared.metrics import BalancedAccuracy, F1ScoreMacro
 from shared.model import get_efficientnet, get_mobilenet, get_model_by_type
 from shared.training import EarlyStopping, evaluate, set_device, train, LossFnType
 
-if __name__ == "__main__":
-    metrics = [BalancedAccuracy, F1ScoreMacro]
-    def callback(round, loss, m):
-        print(f"I AM THE CALLBACK FROM ROUND {round}")
-
-    model = get_model_by_type(
-            'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
-    run_fl_simulation(
-        n_clients=10,
-        n_rounds=5,
-        dataset_config=DatasetConfig(
-            augmentation=False,
-            batch_size=8,
-            classes=[OCTDLClass.AMD, OCTDLClass.NO]
-        ),
-        client_config=ClientConfig(
-            device=set_device(),
-            dropout=0.2,
-            epochs=5,
-            loss_fn_type='CrossEntropy',
-            lr=0.0005,
-            model_type='MobileNetV2',
-            transfer_learning=True,
-            metrics=metrics
-        ),
-        strategy=get_fedavg(10, metrics, model, ".", callback)
-    )
-
-    sys.exit(0)
+def try_centralized():
     classes = [OCTDLClass.AMD, OCTDLClass.NO]
     
     balancing_weight = get_balancing_weights(
@@ -97,3 +69,39 @@ if __name__ == "__main__":
     metrics, loss, cm = evaluate(model, val_loader, loss_fn, metrics, device=set_device())
 
     print(metrics)
+
+
+def try_federated():
+    metrics = [BalancedAccuracy, F1ScoreMacro]
+    def callback(round, loss, m):
+        print(f"I AM THE CALLBACK FROM ROUND {round}")
+
+    model = get_model_by_type(
+            'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
+    run_fl_simulation(
+        n_clients=10,
+        n_rounds=5,
+        dataset_config=DatasetConfig(
+            augmentation=False,
+            batch_size=8,
+            classes=[OCTDLClass.AMD, OCTDLClass.NO]
+        ),
+        client_config=ClientConfig(
+            device=set_device(),
+            dropout=0.2,
+            epochs=5,
+            loss_fn_type='CrossEntropy',
+            lr=0.0005,
+            model_type='MobileNetV2',
+            transfer_learning=True,
+            metrics=metrics
+        ),
+        strategy=get_fedavg(10, metrics, model, ".", callback)
+    )
+
+    sys.exit(0)
+    
+
+if __name__ == "__main__":
+    #try_centralized()
+    try_federated()

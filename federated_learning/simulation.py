@@ -35,7 +35,7 @@ def run_fl_simulation(
         config=client_config
     )
 
-    num_gpus = 1.0/n_clients if torch.cuda.is_available() else 0.0
+    num_gpus = 1.0 if torch.cuda.is_available() else 0.0
 
     history = fl.simulation.start_simulation(
         client_fn=client_fn,

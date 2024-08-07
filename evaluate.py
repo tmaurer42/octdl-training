@@ -12,7 +12,7 @@ from sklearn import metrics
 from experiments_centralized import get_study_name, load_weights
 from federated_learning.server import FLStrategy
 from federated_learning.optimization import load_weights as load_weigths_fl
-from shared.data import OCTDLClass, OCTDLDataset, get_transforms, load_octdl_data
+from shared.data import OCTDLClass, OCTDLDataset, get_transforms, load_octdl_data, prepare_dataset
 from shared.metrics import BalancedAccuracy, CategoricalMetric, F1ScoreMacro, balanced_accuracy
 from shared.model import ModelType, get_model_by_type
 from shared.training import set_device, LossFnType, OptimizationMode
@@ -87,11 +87,7 @@ def evaluate(
     study_name = study.study_name
     best_trial = study.best_trial
 
-    _, _, test_data = load_octdl_data(classes)
-    base_transform, _ = get_transforms(224)
-    test_dataset = OCTDLDataset(test_data, classes, base_transform)
-    test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=128, shuffle=False)
+    _, _, test_loader = prepare_dataset(classes=classes, augmentation=False, batch_size=128)
 
     model = get_model_by_type(model_type, transfer_learning, classes, 0.0)
 

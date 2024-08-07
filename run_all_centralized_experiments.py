@@ -1,4 +1,4 @@
-from experiments_centralized import main as run_experiment
+from centralized.optimization import main as run_experiment
 from shared.data import OCTDLClass
 
 

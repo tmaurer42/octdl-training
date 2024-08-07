@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import flwr as fl
+import torch
 
 from .client import ClientConfig, generate_client_fn
 from shared.data import OCTDLClass, prepare_dataset_partitioned
@@ -34,12 +35,15 @@ def run_fl_simulation(
         config=client_config
     )
 
+    num_gpus = 1.0/n_clients if torch.cuda.is_available() else 0.0
+
     history = fl.simulation.start_simulation(
         client_fn=client_fn,
         num_clients=n_clients,
         config=fl.server.ServerConfig(
             num_rounds=n_rounds
         ),
+        client_resources={"num_cpus": 1, "num_gpus": num_gpus},
         strategy=strategy,
     )
 

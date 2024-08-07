@@ -27,7 +27,7 @@ def get_checkpoints_folder_path(study_name: str, fl_strategy: FLStrategy):
 
 def load_weights(fl_strategy: FLStrategy, model: torch.nn.Module, study_name, trial_number, round):
     path = os.path.join(
-        get_checkpoints_folder_path(study_name, fl_strategy), 
+        get_checkpoints_folder_path(study_name, fl_strategy),
         f"trial_{trial_number}"
     )
     weights_path = os.path.join(path, f"model_round_{round}.pth")
@@ -56,11 +56,12 @@ def run_study(
     if optimization_mode == 'maximize_f1_macro':
         raise ValueError("maximize_f1_macro is not supported in FL")
 
-    device = set_device()
 
-    results_path = os.path.join('.', f'results_{fl_strategy}')
+    results_path = get_results_path(fl_strategy)
 
     def objective(trial: optuna.Trial):
+        device = set_device()
+        
         # Tunable Hyperparameters
         batch_size = trial.suggest_categorical(
             "batch_size", [8, 16, 32, 64, 128])
@@ -77,7 +78,7 @@ def run_study(
         metrics = [BalancedAccuracy, F1ScoreMacro]
 
         checkpoints_folder_path = get_checkpoints_folder_path(
-            study_name, results_path)
+            study_name, fl_strategy)
         checkpoints_path = os.path.join(
             checkpoints_folder_path, f"trial_{trial.number}")
 
@@ -86,34 +87,55 @@ def run_study(
 
         def on_server_evaluate(round, loss, _):
             trial.report(loss, round - 1)
+            if trial.should_prune():
+                raise optuna.TrialPruned
 
         if fl_strategy == 'FedAvg':
             fed_avg = get_fedavg(n_clients, metrics, model,
                                  checkpoints_path, on_server_evaluate)
 
-        history = run_fl_simulation(
-            n_clients=n_clients,
-            n_rounds=n_rounds,
-            dataset_config=DatasetConfig(
-                augmentation=apply_augmentation,
-                batch_size=batch_size,
-                classes=classes
-            ),
-            client_config=ClientConfig(
-                device=device,
-                dropout=dropout,
-                epochs=n_local_epochs,
-                loss_fn_type=loss_fn_type,
-                lr=learning_rate,
-                model_type=model_type,
-                transfer_learning=transfer_learning,
-                metrics=metrics
-            ),
-            strategy=fed_avg
-        )
+        try:
+            history = run_fl_simulation(
+                n_clients=n_clients,
+                n_rounds=n_rounds,
+                dataset_config=DatasetConfig(
+                    augmentation=apply_augmentation,
+                    batch_size=batch_size,
+                    classes=classes
+                ),
+                client_config=ClientConfig(
+                    device=device,
+                    dropout=dropout,
+                    epochs=n_local_epochs,
+                    loss_fn_type=loss_fn_type,
+                    lr=learning_rate,
+                    model_type=model_type,
+                    transfer_learning=transfer_learning,
+                    metrics=metrics
+                ),
+                strategy=fed_avg
+            )
+        except Exception as ex:
+            # run_fl_simulation throws a custom error when the optuna error is raised
+            # so we check again if the current trial should be pruned
+            if trial.should_prune():
+                raise optuna.TrialPruned
+            else:
+                raise ex
+
+        bal_accuracies = history.metrics_distributed[BalancedAccuracy.name()]
+        f1_macro_scores = history.metrics_distributed[F1ScoreMacro.name()]
 
         losses = history.losses_distributed
         lowest_loss = min(losses, key=lambda round_loss: round_loss[1])
+
+        lowest_loss_round = lowest_loss[0]
+        bal_accuracies = history.metrics_distributed[BalancedAccuracy.name()]
+        f1_macro_scores = history.metrics_distributed[F1ScoreMacro.name()]
+        trial.set_user_attr(BalancedAccuracy.name(),
+                            bal_accuracies[lowest_loss_round - 1])
+        trial.set_user_attr(F1ScoreMacro.name(),
+                            f1_macro_scores[lowest_loss_round - 1])
 
         return lowest_loss[1]
 
@@ -128,9 +150,9 @@ def run_study(
     )
 
     study.optimize(objective, n_trials, n_jobs=n_jobs)
-    
+
     delete_except(
-        get_checkpoints_folder_path(study.study_name, results_path),
+        get_checkpoints_folder_path(study.study_name, fl_strategy),
         f"trial_{study.best_trial.number}"
     )
 

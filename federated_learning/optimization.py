@@ -7,7 +7,7 @@ import torch
 
 from federated_learning.client import ClientConfig
 from federated_learning.fedavg import get_fedavg
-from federated_learning.server import FLStrategy
+from federated_learning.strategy import FLStrategy
 from federated_learning.simulation import DatasetConfig, run_fl_simulation
 from shared.data import OCTDLClass
 from shared.metrics import BalancedAccuracy, F1ScoreMacro
@@ -91,7 +91,7 @@ def run_study(
                 raise optuna.TrialPruned
 
         if fl_strategy == 'FedAvg':
-            fed_avg = get_fedavg(n_clients, metrics, model,
+            strategy = get_fedavg(n_clients, metrics, model,
                                  checkpoints_path, on_server_evaluate)
 
         try:
@@ -113,7 +113,8 @@ def run_study(
                     transfer_learning=transfer_learning,
                     metrics=metrics
                 ),
-                strategy=fed_avg
+                strategy=strategy,
+                strategy_name=fl_strategy
             )
         except Exception as ex:
             # run_fl_simulation throws a custom error when the optuna error is raised

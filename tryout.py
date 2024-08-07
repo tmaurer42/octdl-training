@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 
 from federated_learning.client import ClientConfig
 from federated_learning.fedavg import get_fedavg
+from federated_learning.fedbuff import get_fedbuff
 from federated_learning.simulation import DatasetConfig, run_fl_simulation
 from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms, prepare_dataset
 from shared.metrics import BalancedAccuracy, F1ScoreMacro
@@ -74,13 +75,13 @@ def try_centralized():
 def try_federated():
     metrics = [BalancedAccuracy, F1ScoreMacro]
     def callback(round, loss, m):
-        print(f"I AM THE CALLBACK FROM ROUND {round}")
+        print(f"I AM THE CALLBACK FROM ROUND {round}, the loss is {loss}")
 
     model = get_model_by_type(
             'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
     run_fl_simulation(
         n_clients=10,
-        n_rounds=5,
+        n_rounds=20,
         dataset_config=DatasetConfig(
             augmentation=False,
             batch_size=8,
@@ -96,7 +97,16 @@ def try_federated():
             transfer_learning=True,
             metrics=metrics
         ),
-        strategy=get_fedavg(10, metrics, model, ".", callback)
+        strategy=get_fedbuff(
+            buffer_size=5, 
+            n_clients=10, 
+            server_lr=0.8, 
+            metrics=metrics, 
+            model=None, 
+            checkpoint_path=None,
+            on_aggregate_evaluated=callback
+        ),
+        strategy_name='FedBuff'
     )
 
     sys.exit(0)

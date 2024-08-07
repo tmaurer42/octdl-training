@@ -3,7 +3,9 @@ from dataclasses import dataclass
 import flwr as fl
 import torch
 
-from .client import ClientConfig, generate_client_fn
+from federated_learning.strategy import FLStrategy
+
+from .client import ClientConfig, generate_client_fn, generate_fedbuff_client_fn
 from shared.data import OCTDLClass, prepare_dataset_partitioned
 
 
@@ -19,7 +21,8 @@ def run_fl_simulation(
     n_rounds: int,
     dataset_config: DatasetConfig,
     client_config: ClientConfig,
-    strategy: fl.server.strategy.Strategy = None,
+    strategy: fl.server.strategy.Strategy,
+    strategy_name: FLStrategy
 ) -> fl.server.History :
     train_loaders, val_loaders, _ = prepare_dataset_partitioned(
         classes=dataset_config.classes,
@@ -28,12 +31,20 @@ def run_fl_simulation(
         n_partitions=n_clients,
     )
 
-    client_fn = generate_client_fn(
-        train_loaders=train_loaders, 
-        val_loaders=val_loaders,
-        classes=dataset_config.classes,
-        config=client_config
-    )
+    if strategy_name == 'FedAvg':
+        client_fn = generate_client_fn(
+            train_loaders=train_loaders, 
+            val_loaders=val_loaders,
+            classes=dataset_config.classes,
+            config=client_config
+        )
+    if strategy_name == 'FedBuff':
+        client_fn = generate_fedbuff_client_fn(
+            train_loaders=train_loaders, 
+            val_loaders=val_loaders,
+            classes=dataset_config.classes,
+            config=client_config
+        )
 
     num_gpus = 1.0 if torch.cuda.is_available() else 0.0
 

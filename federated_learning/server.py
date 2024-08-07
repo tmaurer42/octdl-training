@@ -9,9 +9,6 @@ from flwr.server.server import Parameters
 from shared.metrics import CategoricalMetric
 
 
-FLStrategy = Literal['FedAvg', 'FedBuff']
-
-
 def get_avg_metrics_fn(metric_types: list[type[CategoricalMetric]]) -> fl.common.MetricsAggregationFn:
     def average_metrics(metrics):
         metrics_dict = {}

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import OrderedDict
 import flwr as fl
+from flwr.common import parameters_to_ndarrays
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -23,7 +24,7 @@ class ClientConfig:
     metrics: list[type[CategoricalMetric]]
 
 
-class FlowerClient(fl.client.NumPyClient):
+class FlClient(fl.client.NumPyClient):
     def __init__(
         self,
         train_loader: DataLoader,
@@ -53,10 +54,10 @@ class FlowerClient(fl.client.NumPyClient):
 
     def set_parameters(self, parameters):
         model_state_dict_keys = list(self.model.state_dict().keys())
-        
+
         params_dict = zip(model_state_dict_keys, parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        
+
         self.model.load_state_dict(state_dict, strict=True)
 
     def get_parameters(self, config):
@@ -113,6 +114,21 @@ class FlowerClient(fl.client.NumPyClient):
         return float(loss), len(self.val_loader.dataset), metrics_dict
 
 
+class FedBuffClient(FlClient):
+    def fit(self, parameters, config):
+        """
+        FedBuff-client algorithm line 4:
+        Compute the parameter update, i.e. subtract the trained params from the received ones.
+        """
+        received_parameters = parameters
+        new_parameters, num_examples, _ = super().fit(parameters, config)
+
+        update = [received - new for received,
+                  new in zip(received_parameters, new_parameters)]
+
+        return update, num_examples, {'staleness': config['staleness']}
+
+
 def generate_client_fn(
     train_loaders: list[DataLoader],
     val_loaders: list[DataLoader],
@@ -121,7 +137,26 @@ def generate_client_fn(
 ):
     def client_fn(ctx: fl.common.Context):
         partition_id = ctx.node_config['partition-id']
-        return FlowerClient(
+        return FlClient(
+            train_loader=train_loaders[int(partition_id)],
+            val_loader=val_loaders[int(partition_id)],
+            classes=classes,
+            config=config
+        ).to_client()
+
+    # return the function to spawn client
+    return client_fn
+
+
+def generate_fedbuff_client_fn(
+    train_loaders: list[DataLoader],
+    val_loaders: list[DataLoader],
+    classes: list[OCTDLClass],
+    config: ClientConfig
+):
+    def client_fn(ctx: fl.common.Context):
+        partition_id = ctx.node_config['partition-id']
+        return FedBuffClient(
             train_loader=train_loaders[int(partition_id)],
             val_loader=val_loaders[int(partition_id)],
             classes=classes,

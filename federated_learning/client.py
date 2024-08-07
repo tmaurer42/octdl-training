@@ -119,10 +119,11 @@ def generate_client_fn(
     classes: list[OCTDLClass],
     config: ClientConfig
 ):
-    def client_fn(cid: str):
+    def client_fn(ctx: fl.common.Context):
+        partition_id = ctx.node_config['partition-id']
         return FlowerClient(
-            train_loader=train_loaders[int(cid)],
-            val_loader=val_loaders[int(cid)],
+            train_loader=train_loaders[int(partition_id)],
+            val_loader=val_loaders[int(partition_id)],
             classes=classes,
             config=config
         ).to_client()

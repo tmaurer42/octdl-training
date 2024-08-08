@@ -66,7 +66,6 @@ def get_study(
 
     db_name = "results.sqlite3"
     db_url = f"sqlite:///{os.path.join(results_path, db_name)}"
-    print(study_name)
     study: optuna.Study = optuna.load_study(
         study_name=study_name, storage=db_url)
 

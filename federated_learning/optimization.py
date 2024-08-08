@@ -7,6 +7,7 @@ import torch
 
 from federated_learning.client import ClientConfig
 from federated_learning.fedavg import get_fedavg
+from federated_learning.fedbuff import get_fedbuff
 from federated_learning.strategy import FLStrategy
 from federated_learning.simulation import DatasetConfig, run_fl_simulation
 from shared.data import OCTDLClass
@@ -50,7 +51,8 @@ def run_study(
     classes: list[OCTDLClass],
     loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,
-    n_jobs: int,
+    buffer_size: int = None,
+    n_jobs: int = 1,
     n_trials: int = 100,
 ):
     if optimization_mode == 'maximize_f1_macro':
@@ -70,6 +72,9 @@ def run_study(
         apply_augmentation = trial.suggest_categorical(
             "apply_augmentation", [True, False])
         dropout = trial.suggest_float("dropout", 0.0, 0.5, step=0.1)
+
+        if fl_strategy == 'FedBuff':
+            server_lr = trial.suggest_float("server_lr", 0.0001, 10, log=True)
 
         # Initialize model
         model = get_model_by_type(
@@ -93,6 +98,16 @@ def run_study(
         if fl_strategy == 'FedAvg':
             strategy = get_fedavg(n_clients, metrics, model,
                                  checkpoints_path, on_server_evaluate)
+        if fl_strategy == 'FedBuff':
+            strategy = get_fedbuff(
+                buffer_size,
+                n_clients,
+                server_lr,
+                metrics,
+                model,
+                checkpoints_path,
+                on_server_evaluate
+            )
 
         try:
             history = run_fl_simulation(
@@ -170,6 +185,7 @@ def main(
     n_clients: int,
     n_local_epochs: int,
     n_rounds: int,
+    buffer_size: int = None,
     n_jobs=1
 ):
     study_name = get_fl_study_name(
@@ -188,6 +204,7 @@ def main(
         transfer_learning=transfer_learning,
         loss_fn_type=loss_fn_type,
         fl_strategy=fl_strategy,
+        buffer_size=buffer_size,
         n_clients=n_clients,
         n_local_epochs=n_local_epochs,
         n_rounds=n_rounds,

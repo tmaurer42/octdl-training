@@ -55,7 +55,7 @@ def run_fl_simulation(
             num_rounds=n_rounds
         ),
         client_resources={"num_cpus": 1, "num_gpus": num_gpus},
-        strategy=strategy,
+        strategy=strategy
     )
 
     return history

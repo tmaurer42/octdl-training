@@ -40,8 +40,13 @@ class FedBuff(FedAvg):
         else:
             max_staleness = server_round - last_used_param_version
 
-        # Use halfnormal staleness distribution, as observed in FedBuff paper
-        staleness = random_halfnormal_variate(max_staleness)
+        
+        if max_staleness == 0:
+            staleness = 0
+        else:
+            # Use halfnormal staleness distribution, as observed in FedBuff paper
+            staleness = random_halfnormal_variate(max_staleness)
+            # staleness = np.random.randint(0, max_staleness)
         param_version = server_round - staleness
         params = self.all_parameters[param_version]
 

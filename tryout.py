@@ -100,7 +100,7 @@ def try_federated():
         strategy=get_fedbuff(
             buffer_size=5, 
             n_clients=10, 
-            server_lr=0.8, 
+            server_lr=40, 
             metrics=metrics, 
             model=None, 
             checkpoint_path=None,

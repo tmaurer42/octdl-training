@@ -44,7 +44,6 @@ def run_study(
     study_name: str,
     fl_strategy: FLStrategy,
     n_clients: int,
-    n_local_epochs: int,
     n_rounds: int,
     model_type: ModelType,
     transfer_learning: bool,
@@ -58,12 +57,11 @@ def run_study(
     if optimization_mode == 'maximize_f1_macro':
         raise ValueError("maximize_f1_macro is not supported in FL")
 
-
     results_path = get_results_path(fl_strategy)
 
     def objective(trial: optuna.Trial):
         device = set_device()
-        
+
         # Tunable Hyperparameters
         batch_size = trial.suggest_categorical(
             "batch_size", [8, 16, 32, 64, 128])
@@ -72,6 +70,7 @@ def run_study(
         apply_augmentation = trial.suggest_categorical(
             "apply_augmentation", [True, False])
         dropout = trial.suggest_float("dropout", 0.0, 0.5, step=0.1)
+        local_epochs = trial.suggest_int("local_epochs", 1, 10, step=1)
 
         if fl_strategy == 'FedBuff':
             server_lr = trial.suggest_float("server_lr", 0.0001, 10, log=True)
@@ -97,7 +96,7 @@ def run_study(
 
         if fl_strategy == 'FedAvg':
             strategy = get_fedavg(n_clients, metrics, model,
-                                 checkpoints_path, on_server_evaluate)
+                                  checkpoints_path, on_server_evaluate)
         if fl_strategy == 'FedBuff':
             strategy = get_fedbuff(
                 buffer_size,
@@ -121,7 +120,7 @@ def run_study(
                 client_config=ClientConfig(
                     device=device,
                     dropout=dropout,
-                    epochs=n_local_epochs,
+                    epochs=local_epochs,
                     loss_fn_type=loss_fn_type,
                     lr=learning_rate,
                     model_type=model_type,
@@ -183,7 +182,6 @@ def main(
     optimization_mode: OptimizationMode,
     fl_strategy: FLStrategy,
     n_clients: int,
-    n_local_epochs: int,
     n_rounds: int,
     buffer_size: int = None,
     n_jobs=1
@@ -195,7 +193,7 @@ def main(
         loss_fn_type,
         optimization_mode,
         n_clients,
-        n_local_epochs
+        buffer_size
     )
     run_study(
         study_name=study_name,
@@ -206,7 +204,6 @@ def main(
         fl_strategy=fl_strategy,
         buffer_size=buffer_size,
         n_clients=n_clients,
-        n_local_epochs=n_local_epochs,
         n_rounds=n_rounds,
         n_trials=100,
         optimization_mode='minimize_loss',

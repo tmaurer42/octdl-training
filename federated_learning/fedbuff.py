@@ -40,7 +40,6 @@ class FedBuff(FedAvg):
         else:
             max_staleness = server_round - last_used_param_version
 
-        
         if max_staleness == 0:
             staleness = 0
         else:
@@ -51,9 +50,6 @@ class FedBuff(FedAvg):
         params = self.all_parameters[param_version]
 
         return params, staleness, param_version
-
-    def param_version_from_staleness(self, staleness: int):
-        return len(self.all_parameters) - staleness
 
     def aggregate_buffer(
         self,
@@ -69,7 +65,6 @@ class FedBuff(FedAvg):
             fit_res = res[1]
             params = parameters_to_ndarrays(fit_res.parameters)
             staleness_scale = (1/(1+math.sqrt(fit_res.metrics['staleness'])))
-            #print(f"Client {res[0].node_id} has staleness {fit_res.metrics['staleness']} with factor {staleness_scale}")
             params = [layer * staleness_scale for layer in params]
             results_parameters.append(params)
 
@@ -119,7 +114,7 @@ class FedBuff(FedAvg):
             last_used_param_version = self.clients_param_version.get(client.cid, None)
             print(f"Client {client.cid} last used params of round {last_used_param_version}")
             params, staleness, param_version = self.get_random_parameters(server_round, last_used_param_version)
-            print(f"Client {client.cid} now uses params of round {param_version} and has staleness {staleness}")
+            print(f"Now uses params of round {param_version} and has staleness {staleness}")
             self.clients_param_version[client.cid] = param_version
 
             fit_ins = FitIns(params, {})

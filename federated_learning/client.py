@@ -13,6 +13,17 @@ from shared.data import OCTDLClass, get_balancing_weights
 from shared.model import ModelType, get_model_by_type
 from shared.metrics import CategoricalMetric
 
+def get_largest_parameter_value(model: torch.nn.Module) -> float:
+    max_val = float('-inf')  # Initialize to negative infinity
+
+    # Iterate over all parameters in the model
+    for param in model.parameters():
+        if param is not None:
+            param_max = torch.max(torch.abs(param)).item()
+            max_val = max(max_val, param_max)
+
+    return max_val
+
 
 @dataclass
 class ClientConfig:
@@ -66,10 +77,10 @@ class FlClient(fl.client.NumPyClient):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
 
     def get_loss_fn(self):
-        balancing_weights = get_balancing_weights(self.classes)
         if self.loss_fn_type == 'CrossEntropy':
             loss_fn = nn.CrossEntropyLoss()
         elif self.loss_fn_type == 'WeightedCrossEntropy':
+            balancing_weights = get_balancing_weights(self.classes)
             loss_fn = nn.CrossEntropyLoss(
                 weight=balancing_weights, label_smoothing=0.1)
 
@@ -91,7 +102,9 @@ class FlClient(fl.client.NumPyClient):
             print_batch_info=False,
             print_epoch_info=False
         )
-        [... for _ in train_gen]
+        for round in train_gen:
+            if math.isnan(round.train_loss):
+                log(ERROR, "Train loss is nan!")
 
         return self.get_parameters({}), len(self.train_loader.dataset), {}
 
@@ -114,7 +127,12 @@ class FlClient(fl.client.NumPyClient):
             metrics_dict[name] = metric_val
 
         if math.isnan(loss):
-            log(ERROR, f"client loss is nan, valloader lenght: {len(self.val_loader)}, val data size: {len(self.val_loader.dataset)}")
+            largest_param = get_largest_parameter_value(self.model)
+            log(
+                ERROR, 
+                f"client loss is nan, valloader lenght: {len(self.val_loader)}, val data size: {len(self.val_loader.dataset)}"
+                f"Max param size is {largest_param}"
+            )
 
         return float(loss), len(self.val_loader.dataset), metrics_dict
 

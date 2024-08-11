@@ -25,6 +25,7 @@ class EarlyStopping:
 
 @dataclass
 class TrainEpochResult:
+    train_loss: float
     val_metrics: dict[str, float]
     val_loss: float
     val_confusion_matrix: np.ndarray
@@ -238,7 +239,7 @@ def train(
                 model, val_loader, loss_fn, metrics, device)
 
             metrics_dict = {name: val for name, val in zip(metric_names, val_metrics)}
-            epoch_result = TrainEpochResult(
+            epoch_result = TrainEpochResult(train_loss,
                 metrics_dict, val_loss, val_confusion_matrix, model.state_dict())
         
         yield epoch_result

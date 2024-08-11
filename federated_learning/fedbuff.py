@@ -114,9 +114,9 @@ class FedBuff(FedAvg):
         for client in clients:
             last_used_param_version = self.clients_param_version.get(
                 client.cid, None)
-            log(INFO, f"Client {client.cid}, last used params of round {last_used_param_version}, now uses {param_version}, staleness {staleness}")
             params, staleness, param_version = self.get_random_parameters(
                 server_round, last_used_param_version)
+            log(INFO, f"Client {client.cid}, last used params of round {last_used_param_version}, now uses {param_version}, staleness {staleness}")
             self.clients_param_version[client.cid] = param_version
 
             fit_ins = FitIns(params, {})

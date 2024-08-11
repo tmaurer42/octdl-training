@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+import math
 from typing import OrderedDict
 import flwr as fl
-from flwr.common import parameters_to_ndarrays
+from flwr.common.logger import log
+from logging import ERROR
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -110,6 +112,9 @@ class FlClient(fl.client.NumPyClient):
         for i, metric_val in enumerate(metrics):
             name = self.metrics[i].name()
             metrics_dict[name] = metric_val
+
+        if math.isnan(loss):
+            log(ERROR, f"client loss is nan, valloader lenght: {len(self.val_loader)}, val data size: {len(self.val_loader.dataset)}")
 
         return float(loss), len(self.val_loader.dataset), metrics_dict
 

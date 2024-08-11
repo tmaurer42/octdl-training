@@ -78,29 +78,29 @@ def try_federated():
         print(f"I AM THE CALLBACK FROM ROUND {round}, the loss is {loss}")
 
     model = get_model_by_type(
-            'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
+            'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.5)
     run_fl_simulation(
-        n_clients=10,
+        n_clients=20,
         n_rounds=20,
         dataset_config=DatasetConfig(
-            augmentation=False,
-            batch_size=8,
+            augmentation=True,
+            batch_size=16,
             classes=[OCTDLClass.AMD, OCTDLClass.NO]
         ),
         client_config=ClientConfig(
             device=set_device(),
-            dropout=0.2,
-            epochs=5,
+            dropout=0.5,
+            epochs=9,
             loss_fn_type='CrossEntropy',
-            lr=0.0005,
+            lr=0.008791029693161605,
             model_type='MobileNetV2',
             transfer_learning=True,
             metrics=metrics
         ),
         strategy=get_fedbuff(
-            buffer_size=5, 
-            n_clients=10, 
-            server_lr=40, 
+            buffer_size=10, 
+            n_clients=20, 
+            server_lr=2.0427798888875746, 
             metrics=metrics, 
             model=None, 
             checkpoint_path=None,

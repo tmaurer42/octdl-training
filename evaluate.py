@@ -23,7 +23,7 @@ from shared.utils import get_fl_study_name
 class FLEvalParameters:
     strategy: FLStrategy
     n_clients: int
-    n_epochs: int
+    buffer_size: Optional[int]
 
 
 def get_result_db_name(
@@ -51,7 +51,7 @@ def get_study(
             loss_fn_type=loss_fn_type,
             optimization_mode=optimization_mode,
             n_clients=fl_eval_parameters.n_clients,
-            n_epochs=fl_eval_parameters.n_epochs
+            buffer_size=fl_eval_parameters.buffer_size
         )
         results_path = f"results_{fl_eval_parameters.strategy}"
     else:

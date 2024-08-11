@@ -1,5 +1,6 @@
 import os
 import shutil
+from typing import Optional
 
 from shared.data import OCTDLClass
 from shared.model import ModelType
@@ -46,7 +47,7 @@ def get_fl_study_name(
     loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,
     n_clients: int,
-    n_epochs: int
+    buffer_size: Optional[int] = None
 ):
     study_name = get_study_name(
         classes,
@@ -55,4 +56,7 @@ def get_fl_study_name(
         loss_fn_type,
         optimization_mode,
     )
-    return f"{study_name}_{n_clients}c_{n_epochs}e"
+    if buffer_size is None:
+        return f"{study_name}_{n_clients}c"
+        
+    return f"{study_name}_{n_clients}c_b{buffer_size}"

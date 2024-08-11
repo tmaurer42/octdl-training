@@ -113,12 +113,13 @@ class FlClient(fl.client.NumPyClient):
 
         loss_fn = self.get_loss_fn()
 
+        device = torch.device("cpu")
         metrics, loss, _ = evaluate(
             model=self.model,
             data_loader=self.val_loader,
             loss_fn=loss_fn,
             metrics=self.metrics,
-            device=self.device
+            device=device
         )
 
         metrics_dict = {}

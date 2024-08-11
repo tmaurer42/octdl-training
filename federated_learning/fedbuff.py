@@ -1,10 +1,11 @@
 from functools import reduce
 from typing import Callable, Optional, Union
+from logging import ERROR, INFO
 
 import math
 from scipy.stats import norm
 import numpy as np
-from flwr.common import FitIns, FitRes, Parameters, NDArrays, parameters_to_ndarrays, ndarrays_to_parameters, Metrics
+from flwr.common import FitIns, FitRes, Parameters, NDArrays, parameters_to_ndarrays, ndarrays_to_parameters, Metrics, log
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
@@ -111,10 +112,11 @@ class FedBuff(FedAvg):
 
         client_instructions = []
         for client in clients:
-            last_used_param_version = self.clients_param_version.get(client.cid, None)
-            print(f"Client {client.cid} last used params of round {last_used_param_version}")
-            params, staleness, param_version = self.get_random_parameters(server_round, last_used_param_version)
-            print(f"Now uses params of round {param_version} and has staleness {staleness}")
+            last_used_param_version = self.clients_param_version.get(
+                client.cid, None)
+            log(INFO, f"Client {client.cid}, last used params of round {last_used_param_version}, now uses {param_version}, staleness {staleness}")
+            params, staleness, param_version = self.get_random_parameters(
+                server_round, last_used_param_version)
             self.clients_param_version[client.cid] = param_version
 
             fit_ins = FitIns(params, {})
@@ -130,14 +132,20 @@ class FedBuff(FedAvg):
         failures: list[Union[tuple[ClientProxy, FitRes], BaseException]],
     ):
         if not results:
+            log(ERROR, f"No results received from clients")
             return None, {}
         if not self.accept_failures and failures:
+            log(ERROR, f"One or more clients failed: {failures}")
             return None, {}
 
         buffer = self.aggregate_buffer(results)
+        if buffer is None:
+            log(ERROR, "aggregate_buffer returned None")
         # Pass the current parameters that were set by the configure_fit method
         new_parameters = self.update_global_params(
             self.all_parameters[server_round], buffer)
+        if buffer is None:
+            log(ERROR, "update_global_params returned None")
 
         return new_parameters, {}
 

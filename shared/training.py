@@ -233,14 +233,15 @@ def train(
         for metric in metrics:
             metric.reset()
 
-        epoch_result, val_metrics, val_loss = None, None, None
+        epoch_result, val_metrics, metrics_dict, val_loss, val_confusion_matrix = None, None, None, None, None
         if val_loader is not None:
             val_metrics, val_loss, val_confusion_matrix = evaluate(
                 model, val_loader, loss_fn, metrics, device)
 
             metrics_dict = {name: val for name, val in zip(metric_names, val_metrics)}
-            epoch_result = TrainEpochResult(train_loss,
-                metrics_dict, val_loss, val_confusion_matrix, model.state_dict())
+
+        epoch_result = TrainEpochResult(train_loss,
+            metrics_dict, val_loss, val_confusion_matrix, model.state_dict())
         
         yield epoch_result
 

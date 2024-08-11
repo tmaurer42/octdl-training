@@ -139,13 +139,13 @@ class FedBuff(FedAvg):
             return None, {}
 
         buffer = self.aggregate_buffer(results)
-        if buffer is None:
-            log(ERROR, "aggregate_buffer returned None")
+        if math.isnan(buffer):
+            log(ERROR, "aggregate_buffer returned nan")
         # Pass the current parameters that were set by the configure_fit method
         new_parameters = self.update_global_params(
             self.all_parameters[server_round], buffer)
-        if buffer is None:
-            log(ERROR, "update_global_params returned None")
+        if math.isnan(buffer):
+            log(ERROR, "update_global_params returned nan")
 
         return new_parameters, {}
 

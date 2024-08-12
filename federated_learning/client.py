@@ -1,8 +1,11 @@
 from dataclasses import dataclass
 import math
 from typing import OrderedDict
+
+import numpy as np
 import flwr as fl
 from flwr.common.logger import log
+from flwr.common import NDArrays
 from logging import ERROR
 import torch
 from torch import nn
@@ -13,6 +16,7 @@ from shared.training import LossFnType, train, evaluate
 from shared.data import OCTDLClass, get_balancing_weights
 from shared.model import ModelType, get_model_by_type
 from shared.metrics import CategoricalMetric
+
 
 def get_largest_parameter_value(model: torch.nn.Module) -> float:
     max_val = float('-inf')  # Initialize to negative infinity
@@ -130,28 +134,21 @@ class FlClient(fl.client.NumPyClient):
         if math.isnan(loss):
             largest_param = get_largest_parameter_value(self.model)
             log(
-                ERROR, 
+                ERROR,
                 f"client loss is nan, valloader lenght: {len(self.val_loader)}, val data size: {len(self.val_loader.dataset)}"
                 f"Max param size is {largest_param}"
             )
-            save_parameters(fl.common.ndarrays_to_parameters(parameters), self.model, 0, 'results_FedBuff')
+            #save_parameters(fl.common.ndarrays_to_parameters(
+            #    parameters), self.model, 0, 'results_FedBuff')
 
         return float(loss), len(self.val_loader.dataset), metrics_dict
 
 
 class FedBuffClient(FlClient):
     def fit(self, parameters, config):
-        """
-        FedBuff-client algorithm line 4:
-        Compute the parameter update, i.e. subtract the trained params from the received ones.
-        """
-        received_parameters = parameters
         new_parameters, num_examples, _ = super().fit(parameters, config)
 
-        update = [received - new for received,
-                  new in zip(received_parameters, new_parameters)]
-
-        return update, num_examples, {'staleness': config['staleness']}
+        return new_parameters, num_examples, {'staleness': config['staleness']}
 
 
 def generate_client_fn(

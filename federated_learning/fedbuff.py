@@ -52,14 +52,15 @@ class FedBuff(FedAvg):
 
         return params, staleness, param_version
 
-    def aggregate_buffer(
+    def aggregate_updates(
         self,
         results: list[tuple[ClientProxy, FitRes]]
     ):
         """
         FedBuff algorithm line 8 and 11:
-        Updates are summed and divided by the buffer size.
+        Updates are summed, divided by the buffer size and multiplied by the servers lr.
         """
+        assert len(results) == self.buffer_size
         results_parameters = []
 
         for res in results:
@@ -70,22 +71,14 @@ class FedBuff(FedAvg):
             results_parameters.append(params)
 
         weights_prime: NDArrays = [
-            reduce(np.add, layer_updates) / self.buffer_size
+            reduce(np.add, layer_updates) * self.server_lr / self.buffer_size
             for layer_updates in zip(*results_parameters)
         ]
-        return weights_prime
+        epsilon = 1e-5
+        weights_prime = [np.where(np.abs(arr) < epsilon, 0, arr)
+                         for arr in weights_prime]
 
-    def update_global_params(self, parameters: Parameters, buffer: NDArrays):
-        """
-        FedBuff algorithm line 14:
-        The buffer is multiplied with the server lr and then subtracted from the current model.
-        """
-        parameters_ndarrays = parameters_to_ndarrays(parameters)
-
-        new_parameters_ndarrays = [weights - self.server_lr *
-                                   update for weights, update in zip(parameters_ndarrays, buffer)]
-
-        return ndarrays_to_parameters(new_parameters_ndarrays)
+        return ndarrays_to_parameters(weights_prime)
 
     def configure_fit(
         self,
@@ -138,10 +131,7 @@ class FedBuff(FedAvg):
             log(ERROR, f"One or more clients failed: {failures}")
             return None, {}
 
-        buffer = self.aggregate_buffer(results)
-        # Pass the current parameters that were set by the configure_fit method
-        new_parameters = self.update_global_params(
-            self.all_parameters[server_round], buffer)
+        new_parameters = self.aggregate_updates(results)
 
         return new_parameters, {}
 

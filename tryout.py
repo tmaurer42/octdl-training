@@ -1,6 +1,7 @@
 import json
 import sys
 from torch import nn, optim
+import torch
 from torch.utils.data import DataLoader
 
 from federated_learning.client import ClientConfig
@@ -79,35 +80,39 @@ def try_federated():
 
     model = get_model_by_type(
             'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.5)
-    run_fl_simulation(
-        n_clients=20,
-        n_rounds=20,
-        dataset_config=DatasetConfig(
-            augmentation=True,
-            batch_size=16,
-            classes=[OCTDLClass.AMD, OCTDLClass.NO]
-        ),
-        client_config=ClientConfig(
-            device=set_device(),
-            dropout=0.5,
-            epochs=9,
-            loss_fn_type='CrossEntropy',
-            lr=0.008791029693161605,
-            model_type='MobileNetV2',
-            transfer_learning=True,
-            metrics=metrics
-        ),
-        strategy=get_fedbuff(
-            buffer_size=10, 
-            n_clients=20, 
-            server_lr=2.0427798888875746, 
-            metrics=metrics, 
-            model=None, 
-            checkpoint_path=None,
-            on_aggregate_evaluated=callback
-        ),
-        strategy_name='FedBuff'
-    )
+
+    device = torch.device("cpu")
+
+    for _ in range(5):
+        run_fl_simulation(
+            n_clients=20,
+            n_rounds=20,
+            dataset_config=DatasetConfig(
+                augmentation=True,
+                batch_size=128,
+                classes=[OCTDLClass.AMD, OCTDLClass.NO]
+            ),
+            client_config=ClientConfig(
+                device=device,
+                dropout=0.4,
+                epochs=8,
+                loss_fn_type='CrossEntropy',
+                lr=0.00167,
+                model_type='MobileNetV2',
+                transfer_learning=True,
+                metrics=metrics
+            ),
+            strategy=get_fedbuff(
+                buffer_size=3, 
+                n_clients=20, 
+                server_lr=0.5, 
+                metrics=metrics, 
+                model=None, 
+                checkpoint_path=None,
+                on_aggregate_evaluated=callback
+            ),
+            strategy_name='FedBuff'
+        )
 
     sys.exit(0)
     

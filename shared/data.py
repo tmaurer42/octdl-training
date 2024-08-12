@@ -44,9 +44,6 @@ class OCTDLDataset(Dataset):
         self.classes = [cls.name for cls in classes]
         self.class_to_index = {cls: i for i, cls in enumerate(self.classes)}
 
-        print("OCTDL Dataset initialized, "
-              f"labels: {', '.join([f'{cls}: {self.class_to_index[cls]}' for cls in self.classes])}")
-
     def __len__(self):
         return len(self.data)
 

@@ -23,18 +23,13 @@ def get_avg_metrics_fn(metric_types: list[type[CategoricalMetric]]) -> fl.common
 
 
 def save_parameters(params: Parameters, model: torch.nn.Module, round: int, path: str):
-    print(f"Saving round {round} aggregated_parameters...")
-
-    # Convert `Parameters` to `List[np.ndarray]`
     aggregated_ndarrays: list[np.ndarray] = fl.common.parameters_to_ndarrays(
         params)
 
-    # Convert `List[np.ndarray]` to PyTorch`state_dict`
     params_dict = zip(model.state_dict().keys(), aggregated_ndarrays)
     state_dict = OrderedDict({k: torch.tensor(v)
                                 for k, v in params_dict})
     model.load_state_dict(state_dict, strict=True)
 
-    # Save the model
     checkpoint_path = os.path.join(path, f"model_round_{round}.pth")
     torch.save(model.state_dict(), checkpoint_path)

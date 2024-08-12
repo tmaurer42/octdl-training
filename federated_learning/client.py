@@ -8,6 +8,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
+from federated_learning.server import save_parameters
 from shared.training import LossFnType, train, evaluate
 from shared.data import OCTDLClass, get_balancing_weights
 from shared.model import ModelType, get_model_by_type
@@ -113,13 +114,12 @@ class FlClient(fl.client.NumPyClient):
 
         loss_fn = self.get_loss_fn()
 
-        device = torch.device("cpu")
         metrics, loss, _ = evaluate(
             model=self.model,
             data_loader=self.val_loader,
             loss_fn=loss_fn,
             metrics=self.metrics,
-            device=device
+            device=self.device
         )
 
         metrics_dict = {}
@@ -134,6 +134,7 @@ class FlClient(fl.client.NumPyClient):
                 f"client loss is nan, valloader lenght: {len(self.val_loader)}, val data size: {len(self.val_loader.dataset)}"
                 f"Max param size is {largest_param}"
             )
+            save_parameters(fl.common.ndarrays_to_parameters(parameters), self.model, 0, 'results_FedBuff')
 
         return float(loss), len(self.val_loader.dataset), metrics_dict
 

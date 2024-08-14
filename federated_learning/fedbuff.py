@@ -71,7 +71,7 @@ class FedBuff(FedAvg):
         for res in results:
             fit_res = res[1]
             params = parameters_to_ndarrays(fit_res.parameters)
-            staleness_scale = (1/(1+math.sqrt(fit_res.metrics['staleness'])))
+            staleness_scale = 1/(1+math.sqrt(fit_res.metrics['staleness']))
             params = [layer * staleness_scale for layer in params]
             results_parameters.append(params)
 

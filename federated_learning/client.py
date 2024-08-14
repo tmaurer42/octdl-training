@@ -97,9 +97,6 @@ class FlClient(fl.client.NumPyClient):
         loss_fn = self.get_loss_fn()
         optim = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
-        def adapt_lr(current_batch_size: int):
-            return self.lr * (current_batch_size / self.train_loader.batch_size)
-
         train_gen = train(
             model=self.model,
             epochs=self.epochs,
@@ -109,7 +106,6 @@ class FlClient(fl.client.NumPyClient):
             device=self.device,
             print_batch_info=False,
             print_epoch_info=False,
-            adapt_lr=adapt_lr
         )
         for round in train_gen:
             if math.isnan(round.train_loss):

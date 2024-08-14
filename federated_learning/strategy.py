@@ -50,9 +50,11 @@ def wrap_strategy(base: type[Strategy]):
             aggregated_parameters, aggregated_metrics = super(
             ).aggregate_fit(server_round, results, failures)
 
+            is_fedbuff = base.__name__ == 'FedBuff'
             if aggregated_parameters is not None and self.model is not None:
                 save_parameters(aggregated_parameters, self.model,
-                                server_round, self.checkpoint_path)
+                                server_round, self.checkpoint_path,
+                                trainable_params_only=is_fedbuff)
 
             return aggregated_parameters, aggregated_metrics
 

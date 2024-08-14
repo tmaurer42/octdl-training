@@ -1,5 +1,5 @@
+from collections import OrderedDict
 import os
-from typing import Literal, OrderedDict
 
 import torch
 import numpy as np
@@ -22,14 +22,28 @@ def get_avg_metrics_fn(metric_types: list[type[CategoricalMetric]]) -> fl.common
     return average_metrics
 
 
-def save_parameters(params: Parameters, model: torch.nn.Module, round: int, path: str):
-    aggregated_ndarrays: list[np.ndarray] = fl.common.parameters_to_ndarrays(
-        params)
+def save_parameters(params: Parameters, model: torch.nn.Module, round: int, path: str, trainable_params_only=False):
+    if trainable_params_only:
+        new_state_dict = OrderedDict()
+        trainable_param_names = [
+            name for name, p in model.named_parameters() if p.requires_grad]
+        params_ndarrays = fl.common.parameters_to_ndarrays(params)
+        assert len(params_ndarrays) == len(trainable_param_names)
 
-    params_dict = zip(model.state_dict().keys(), aggregated_ndarrays)
-    state_dict = OrderedDict({k: torch.tensor(v)
-                                for k, v in params_dict})
-    model.load_state_dict(state_dict, strict=True)
+        for name, param in model.state_dict().items():
+            if name in trainable_param_names:
+                p = params_ndarrays.pop(0)
+                new_state_dict[name] = torch.tensor(p)
+            else:
+                new_state_dict[name] = param
+    else:
+        aggregated_ndarrays: list[np.ndarray] = fl.common.parameters_to_ndarrays(
+            params)
 
+        params_dict = zip(model.state_dict().keys(), aggregated_ndarrays)
+        new_state_dict = OrderedDict({k: torch.tensor(v)
+                                      for k, v in params_dict})
+
+    model.load_state_dict(new_state_dict, strict=True)
     checkpoint_path = os.path.join(path, f"model_round_{round}.pth")
     torch.save(model.state_dict(), checkpoint_path)

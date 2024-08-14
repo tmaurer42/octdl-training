@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 import math
-from typing import OrderedDict
+from collections import OrderedDict
 
 import numpy as np
 import flwr as fl
 from flwr.common.logger import log
 from flwr.common import NDArrays
-from logging import ERROR
+from logging import ERROR, INFO
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -97,6 +97,9 @@ class FlClient(fl.client.NumPyClient):
         loss_fn = self.get_loss_fn()
         optim = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
+        def adapt_lr(current_batch_size: int):
+            return self.lr * (current_batch_size / self.train_loader.batch_size)
+
         train_gen = train(
             model=self.model,
             epochs=self.epochs,
@@ -105,7 +108,8 @@ class FlClient(fl.client.NumPyClient):
             optimizer=optim,
             device=self.device,
             print_batch_info=False,
-            print_epoch_info=False
+            print_epoch_info=False,
+            adapt_lr=adapt_lr
         )
         for round in train_gen:
             if math.isnan(round.train_loss):
@@ -138,17 +142,56 @@ class FlClient(fl.client.NumPyClient):
                 f"client loss is nan, valloader lenght: {len(self.val_loader)}, val data size: {len(self.val_loader.dataset)}"
                 f"Max param size is {largest_param}"
             )
-            #save_parameters(fl.common.ndarrays_to_parameters(
-            #    parameters), self.model, 0, 'results_FedBuff')
 
         return float(loss), len(self.val_loader.dataset), metrics_dict
 
 
 class FedBuffClient(FlClient):
-    def fit(self, parameters, config):
+    def __init__(
+        self, 
+        train_loader: DataLoader, 
+        val_loader: DataLoader, 
+        classes: list[OCTDLClass], 
+        config: ClientConfig
+    ) -> None:
+        super().__init__(train_loader, val_loader, classes, config)
+        named_model_params = self.model.named_parameters()
+        self.trainable_param_names = [name for name, param in named_model_params if param.requires_grad]
+
+    def set_parameters(self, parameters: NDArrays):
+        new_state_dict = OrderedDict()
+        assert len(parameters) == len(self.trainable_param_names)
+        for name, param in self.model.state_dict().items():
+            if name in self.trainable_param_names:
+                p = parameters.pop(0)
+                new_state_dict[name] = torch.tensor(p)
+            else:
+                new_state_dict[name] = param
+        
+        self.model.load_state_dict(new_state_dict, strict=True)
+
+    def get_parameters(self, config):
+        parameters = []
+        for name, params in self.model.state_dict().items():
+            if name in self.trainable_param_names:
+                parameters.append(params.cpu().numpy())
+
+        assert len(parameters) == len(self.trainable_param_names)
+
+        return parameters
+
+    def fit(self, parameters: NDArrays, config):
+        """
+        FedBuff-client algorithm line 4:
+        Compute the parameter update, i.e. subtract the trained params from the received ones.
+        """
+        received_parameters = parameters.copy()
         new_parameters, num_examples, _ = super().fit(parameters, config)
 
-        return new_parameters, num_examples, {'staleness': config['staleness']}
+        update = [received - new for received,
+                  new in zip(received_parameters, new_parameters)]
+
+        return update, num_examples, {'staleness': config['staleness']}
 
 
 def generate_client_fn(

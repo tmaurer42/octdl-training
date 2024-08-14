@@ -1,5 +1,4 @@
-
-
+import time
 import os
 
 import optuna
@@ -109,6 +108,8 @@ def run_study(
             )
 
         try:
+            # Wait a bit, so the server from the previous trial can shut down
+            time.sleep(2)
             history = run_fl_simulation(
                 n_clients=n_clients,
                 n_rounds=n_rounds,

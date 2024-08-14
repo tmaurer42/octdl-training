@@ -23,9 +23,11 @@ def random_halfnormal_variate(max):
     if max == 0:
         return 0
 
-    value = abs(norm.rvs(scale=max/4))
+    value = float('inf')
+    while value > max:
+        value = int(math.floor(abs(norm.rvs(scale=max/4))))
 
-    return int(round(value % max))
+    return value
 
 
 class FedBuff(FedAvg):
@@ -41,6 +43,10 @@ class FedBuff(FedAvg):
         else:
             max_staleness = server_round - last_used_param_version
 
+        # staleness is bound by ceil[t(max,1) / K], where t(max,1) is the maximum possible staleness if K was 1
+        staleness_bound = math.ceil(server_round - 1 / self.buffer_size)
+        max_staleness = min(max_staleness, staleness_bound)
+
         if max_staleness == 0:
             staleness = 0
         else:
@@ -52,15 +58,14 @@ class FedBuff(FedAvg):
 
         return params, staleness, param_version
 
-    def aggregate_updates(
+    def aggregate_buffer(
         self,
         results: list[tuple[ClientProxy, FitRes]]
     ):
         """
         FedBuff algorithm line 8 and 11:
-        Updates are summed, divided by the buffer size and multiplied by the servers lr.
+        Updates are summed and divided by the buffer size.
         """
-        assert len(results) == self.buffer_size
         results_parameters = []
 
         for res in results:
@@ -71,14 +76,23 @@ class FedBuff(FedAvg):
             results_parameters.append(params)
 
         weights_prime: NDArrays = [
-            reduce(np.add, layer_updates) * self.server_lr / self.buffer_size
+            reduce(np.add, layer_updates) / self.buffer_size
             for layer_updates in zip(*results_parameters)
         ]
-        epsilon = 1e-5
-        weights_prime = [np.where(np.abs(arr) < epsilon, 0, arr)
-                         for arr in weights_prime]
+        return weights_prime
 
-        return ndarrays_to_parameters(weights_prime)
+    def update_global_params(self, parameters: Parameters, buffer: NDArrays):
+        """
+        FedBuff algorithm line 14:
+        The buffer is multiplied with the server lr and then subtracted from the current model.
+        """
+        parameters_ndarrays = parameters_to_ndarrays(parameters)
+
+        new_parameters_ndarrays = [weights - self.server_lr *
+                                   update for weights, update in zip(parameters_ndarrays, buffer)]
+
+        return ndarrays_to_parameters(new_parameters_ndarrays)
+
 
     def configure_fit(
         self,
@@ -131,7 +145,10 @@ class FedBuff(FedAvg):
             log(ERROR, f"One or more clients failed: {failures}")
             return None, {}
 
-        new_parameters = self.aggregate_updates(results)
+        buffer = self.aggregate_buffer(results)
+        # Pass the current parameters that were set by the configure_fit method
+        new_parameters = self.update_global_params(
+            self.all_parameters[server_round], buffer)
 
         return new_parameters, {}
 

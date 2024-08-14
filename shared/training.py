@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Callable, Literal, Optional
 
 import torch
 from torch import nn
@@ -169,7 +169,8 @@ def train(
     val_loader: Optional[DataLoader] = None,
     early_stopping: Optional[EarlyStopping] = None,
     print_batch_info = True,
-    print_epoch_info = True
+    print_epoch_info = True,
+    adapt_lr: Optional[Callable[[int], float]] = None
 ):
     """
     Train the model with early stopping based on validation loss.
@@ -208,6 +209,10 @@ def train(
             images = images.to(device)
             labels = labels.to(device)
 
+            if adapt_lr is not None:
+                for group in optimizer.param_groups:
+                    group['lr'] = adapt_lr(len(labels))
+                    
             optimizer.zero_grad()
             outputs = model(images)
             _, preds = torch.max(outputs.data, 1)

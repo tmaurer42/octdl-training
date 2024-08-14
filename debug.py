@@ -1,10 +1,15 @@
 import torch
+import numpy as np
 
 from shared.training import evaluate
 from shared.model import get_model_by_type
 from shared.data import OCTDLClass, prepare_dataset_partitioned
 
+
 def main():
+    np.seterr(all="raise")
+    torch.autograd.set_detect_anomaly(True)
+
     model = get_model_by_type(
             'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.4)
 
@@ -31,7 +36,21 @@ def main():
         20
     )
 
-    params = model.parameters()
+    print(model)
+
+    params = model.parameters(recurse=False)
+
+    def save_trainable_params_to_file(model, file_path):
+        with open(file_path, 'w') as f:
+            np.set_printoptions(threshold=np.inf, linewidth=np.inf)
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    f.write(f"Parameter: {name}\n")
+                    f.write(f"Shape: {param.shape}\n")
+                    f.write(f"Values:\n{param.data.cpu().numpy()}\n")
+                    f.write("\n")
+
+    #save_trainable_params_to_file(model, 'params.txt')
 
     def check_for_nan(model: torch.nn.Module):
         for name, param in model.named_parameters():
@@ -44,13 +63,18 @@ def main():
                     print("No NaN in gradient.")
             print("No NaN values found in model parameters.")
 
-    check_for_nan(model)
+    #check_for_nan(model)
 
     for param in params:
         if param.requires_grad:
-            torch.nan_to_num(param)
             print(torch.max(param))
             print(torch.min(param))
+
+    def prune_weights(model: torch.nn.Module, threshold=1e-2):
+        for param in model.parameters():
+            param.data = torch.where(torch.abs(param.data) < threshold, torch.tensor(0.0, device=param.device), param.data)
+
+    prune_weights(model)
 
     for val_loader in val_loaders:
         _, loss, _ = evaluate(

@@ -131,7 +131,8 @@ def evaluate(
     if fl_eval_parameters is not None:
         print(
             f"Federated Learning Strategy: {fl_eval_parameters.strategy}.",
-            f"n_clients: {fl_eval_parameters.n_clients}, n_epochs: {fl_eval_parameters.n_epochs}.",
+            f"n_clients: {fl_eval_parameters.n_clients}",
+            f"buffer_size: {fl_eval_parameters.buffer_size}" if fl_eval_parameters.buffer_size is not None else "",
             f"Lowest aggregated validation loss reached at round {best_round}"
         )
     print(f"Optimization mode: {optimization_mode}")

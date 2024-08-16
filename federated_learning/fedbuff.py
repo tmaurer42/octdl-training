@@ -41,11 +41,11 @@ class FedBuff(FedAvg):
         if last_used_param_version is None:
             max_staleness = len(self.all_parameters) - 1
         else:
-            max_staleness = server_round - last_used_param_version
+            max_staleness = server_round - last_used_param_version - 1
 
         # staleness is bound by ceil[t(max,1) / K], where t(max,1) is the maximum possible staleness if K was 1
-        staleness_bound = math.ceil(server_round - 1 / self.buffer_size)
-        max_staleness = min(max_staleness, staleness_bound)
+        #staleness_bound = math.ceil(server_round - 1 / self.buffer_size)
+        #max_staleness = min(max_staleness, staleness_bound)
 
         if max_staleness == 0:
             staleness = 0
@@ -67,9 +67,12 @@ class FedBuff(FedAvg):
         Updates are summed and divided by the buffer size.
         """
         results_parameters = []
+        #examples = 0
 
         for res in results:
             fit_res = res[1]
+            #num_examples = fit_res.num_examples
+            #examples += num_examples
             params = parameters_to_ndarrays(fit_res.parameters)
             staleness_scale = 1/(1+math.sqrt(fit_res.metrics['staleness']))
             params = [layer * staleness_scale for layer in params]

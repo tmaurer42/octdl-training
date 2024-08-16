@@ -11,7 +11,6 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from federated_learning.server import save_parameters
 from shared.training import LossFnType, train, evaluate
 from shared.data import OCTDLClass, get_balancing_weights
 from shared.model import ModelType, get_model_by_type
@@ -81,11 +80,39 @@ class FlClient(fl.client.NumPyClient):
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
 
+    
+    def compute_class_weights(self):
+        # Step 1: Count the number of samples per class
+        class_counts = {}
+        for _, labels in self.train_loader:
+            labels = labels.cpu().numpy()
+            for label in labels:
+                if label in class_counts:
+                    class_counts[label] += 1
+                else:
+                    class_counts[label] = 1
+        
+        # Convert class_counts to a list where index represents class label
+        num_classes = len(class_counts)
+        counts = np.zeros(num_classes)
+        for label, count in class_counts.items():
+            counts[label] = count
+        
+        # Step 2: Compute the class weights
+        total_samples = np.sum(counts)
+        class_weights = total_samples / (num_classes * counts)
+        
+        # Step 3: Normalize the weights if needed (optional)
+        # For example, normalize such that the weights sum to 1
+        class_weights = class_weights / np.sum(class_weights)
+        
+        return torch.tensor(class_weights, dtype=torch.float)
+
     def get_loss_fn(self):
         if self.loss_fn_type == 'CrossEntropy':
             loss_fn = nn.CrossEntropyLoss()
         elif self.loss_fn_type == 'WeightedCrossEntropy':
-            balancing_weights = get_balancing_weights(self.classes)
+            balancing_weights = self.compute_class_weights()
             loss_fn = nn.CrossEntropyLoss(
                 weight=balancing_weights, label_smoothing=0.1)
 

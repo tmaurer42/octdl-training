@@ -1,3 +1,4 @@
+import os
 from typing import Callable, Literal, Optional, Union
 
 from flwr.common import Scalar, Metrics
@@ -6,7 +7,7 @@ from flwr.server.strategy import Strategy
 from flwr.server.client_manager import ClientProxy
 import torch
 
-from federated_learning.server import save_parameters
+from federated_learning.server import apply_parameters
 
 
 FLStrategy = Literal['FedAvg', 'FedBuff']
@@ -51,10 +52,14 @@ def wrap_strategy(base: type[Strategy]):
             ).aggregate_fit(server_round, results, failures)
 
             is_fedbuff = base.__name__ == 'FedBuff'
+
             if aggregated_parameters is not None and self.model is not None:
-                save_parameters(aggregated_parameters, self.model,
-                                server_round, self.checkpoint_path,
+                apply_parameters(aggregated_parameters, self.model,
                                 trainable_params_only=is_fedbuff)
+
+                if self.checkpoint_path is not None:
+                    path = os.path.join(self.checkpoint_path, f"model_round_{round}.pth")
+                    torch.save(self.model.state_dict(), path)
 
             return aggregated_parameters, aggregated_metrics
 

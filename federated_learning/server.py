@@ -22,7 +22,7 @@ def get_avg_metrics_fn(metric_types: list[type[CategoricalMetric]]) -> fl.common
     return average_metrics
 
 
-def save_parameters(params: Parameters, model: torch.nn.Module, round: int, path: str, trainable_params_only=False):
+def apply_parameters(params: Parameters, model: torch.nn.Module, trainable_params_only=False):
     if trainable_params_only:
         new_state_dict = OrderedDict()
         trainable_param_names = [
@@ -45,5 +45,3 @@ def save_parameters(params: Parameters, model: torch.nn.Module, round: int, path
                                       for k, v in params_dict})
 
     model.load_state_dict(new_state_dict, strict=True)
-    checkpoint_path = os.path.join(path, f"model_round_{round}.pth")
-    torch.save(model.state_dict(), checkpoint_path)

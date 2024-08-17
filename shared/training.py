@@ -168,6 +168,7 @@ def train(
     metrics: Optional[list[CategoricalMetric]] = [],
     val_loader: Optional[DataLoader] = None,
     early_stopping: Optional[EarlyStopping] = None,
+    adapt_lr: Optional[Callable[[float], float]] = None,
     print_batch_info = True,
     print_epoch_info = True,
 ):
@@ -207,6 +208,10 @@ def train(
             images, labels = data
             images = images.to(device)
             labels = labels.to(device)
+
+            if adapt_lr is not None:
+                for group in optimizer.param_groups:
+                    group['lr'] = adapt_lr(len(labels))
 
             optimizer.zero_grad()
             outputs = model(images)

@@ -133,6 +133,7 @@ class FlClient(fl.client.NumPyClient):
             device=self.device,
             print_batch_info=False,
             print_epoch_info=False,
+            adapt_lr=(lambda b: self.lr * b/self.train_loader.batch_size)
         )
         for round in train_gen:
             if math.isnan(round.train_loss):

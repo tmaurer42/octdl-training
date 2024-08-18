@@ -72,7 +72,7 @@ def run_study(
         local_epochs = trial.suggest_int("local_epochs", 1, 10, step=1)
 
         if fl_strategy == 'FedBuff':
-            server_lr = trial.suggest_float("server_lr", 0.0001, 10, log=True)
+            server_lr = trial.suggest_float("server_lr", 0.0001, 2, log=True)
 
         # Initialize model
         model = get_model_by_type(

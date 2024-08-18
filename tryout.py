@@ -77,43 +77,60 @@ def try_federated():
     metrics = [BalancedAccuracy, F1ScoreMacro]
     def callback(round, loss, m):
         print(f"I AM THE CALLBACK FROM ROUND {round}, the loss is {loss}")
+        print(m)
 
     model = get_model_by_type(
-            'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.5)
+            'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
 
-    device = torch.device("cpu")
+    device = torch.device("mps")
 
-    for _ in range(5):
-        run_fl_simulation(
-            n_clients=20,
-            n_rounds=20,
-            dataset_config=DatasetConfig(
-                augmentation=True,
-                batch_size=128,
-                classes=[OCTDLClass.AMD, OCTDLClass.NO]
-            ),
-            client_config=ClientConfig(
-                device=device,
-                dropout=0.4,
-                epochs=8,
-                loss_fn_type='CrossEntropy',
-                lr=0.00167,
-                model_type='MobileNetV2',
-                transfer_learning=True,
-                metrics=metrics
-            ),
-            strategy=get_fedbuff(
-                buffer_size=3, 
-                n_clients=20, 
-                server_lr=0.5, 
-                metrics=metrics, 
-                model=None, 
-                checkpoint_path=None,
-                on_aggregate_evaluated=callback
-            ),
-            strategy_name='FedBuff'
-        )
+    n_clients = 20
 
+    fedavg = get_fedavg(
+        n_clients,
+        metrics,
+        model,
+        None,
+        callback 
+    )
+
+    fedbuff = get_fedbuff(
+        buffer_size=10, 
+        n_clients=n_clients, 
+        server_lr=0.2, 
+        metrics=metrics, 
+        model=model, 
+        checkpoint_path=None,
+        on_aggregate_evaluated=callback
+    )
+
+    h = run_fl_simulation(
+        n_clients=n_clients,
+        n_rounds=40,
+        dataset_config=DatasetConfig(
+            augmentation=False,
+            batch_size=16,
+            classes=[OCTDLClass.AMD, OCTDLClass.NO]
+        ),
+        client_config=ClientConfig(
+            device=device,
+            dropout=0.2,
+            epochs=1,
+            loss_fn_type='WeightedCrossEntropy',
+            lr=0.0023,
+            model_type='MobileNetV2',
+            transfer_learning=True,
+            metrics=metrics
+        ),
+        strategy=fedbuff,
+        strategy_name='FedBuff'
+    )
+
+    _, val_loader, _ = prepare_dataset([OCTDLClass.AMD, OCTDLClass.NO],False,128)
+
+    metrics, loss, cm = evaluate(model, val_loader, nn.CrossEntropyLoss(), [BalancedAccuracy(), F1ScoreMacro()], device)
+    
+    print(metrics)
     sys.exit(0)
     
 

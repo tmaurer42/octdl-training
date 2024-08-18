@@ -1,8 +1,10 @@
+from logging import INFO
 import time
 import os
 
 import optuna
 import torch
+from flwr.common.logger import log
 
 from federated_learning.client import ClientConfig
 from federated_learning.fedavg import get_fedavg
@@ -88,7 +90,8 @@ def run_study(
         if not os.path.exists(checkpoints_path):
             os.makedirs(checkpoints_path)
 
-        def on_server_evaluate(round, loss, _):
+        def on_server_evaluate(round, loss, metrics):
+            log(INFO, f"eval loss: {loss}, eval metrics: {metrics}")
             trial.report(loss, round - 1)
             if trial.should_prune():
                 raise optuna.TrialPruned
@@ -110,6 +113,7 @@ def run_study(
         try:
             # Wait a bit, so the server from the previous trial can shut down
             time.sleep(2)
+            log(INFO, trial.params)
             history = run_fl_simulation(
                 n_clients=n_clients,
                 n_rounds=n_rounds,

@@ -58,7 +58,7 @@ def wrap_strategy(base: type[Strategy]):
                                 trainable_params_only=is_fedbuff)
 
                 if self.checkpoint_path is not None:
-                    path = os.path.join(self.checkpoint_path, f"model_round_{round}.pth")
+                    path = os.path.join(self.checkpoint_path, f"model_round_{server_round}.pth")
                     torch.save(self.model.state_dict(), path)
 
             return aggregated_parameters, aggregated_metrics

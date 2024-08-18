@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import math
 from collections import OrderedDict
+import copy
 
 import numpy as np
 import flwr as fl
@@ -80,7 +81,6 @@ class FlClient(fl.client.NumPyClient):
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
 
-    
     def compute_class_weights(self):
         # Step 1: Count the number of samples per class
         class_counts = {}
@@ -91,25 +91,25 @@ class FlClient(fl.client.NumPyClient):
                     class_counts[label] += 1
                 else:
                     class_counts[label] = 1
-        
+
         # Convert class_counts to a list where index represents class label
         num_classes = len(class_counts)
         counts = np.zeros(num_classes)
         for label, count in class_counts.items():
             counts[label] = count
-        
+
         # Step 2: Compute the class weights
         total_samples = np.sum(counts)
         class_weights = total_samples / (num_classes * counts)
-        
+
         # Step 3: Normalize the weights if needed (optional)
         # For example, normalize such that the weights sum to 1
         class_weights = class_weights / np.sum(class_weights)
-        
+
         return torch.tensor(class_weights, dtype=torch.float)
 
-    def get_loss_fn(self):
-        if self.loss_fn_type == 'CrossEntropy':
+    def get_loss_fn(self, eval=False):
+        if self.loss_fn_type == 'CrossEntropy' or eval:
             loss_fn = nn.CrossEntropyLoss()
         elif self.loss_fn_type == 'WeightedCrossEntropy':
             balancing_weights = self.compute_class_weights()
@@ -144,7 +144,7 @@ class FlClient(fl.client.NumPyClient):
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
 
-        loss_fn = self.get_loss_fn()
+        loss_fn = self.get_loss_fn(eval=True)
 
         metrics, loss, _ = evaluate(
             model=self.model,
@@ -172,26 +172,29 @@ class FlClient(fl.client.NumPyClient):
 
 class FedBuffClient(FlClient):
     def __init__(
-        self, 
-        train_loader: DataLoader, 
-        val_loader: DataLoader, 
-        classes: list[OCTDLClass], 
+        self,
+        train_loader: DataLoader,
+        val_loader: DataLoader,
+        classes: list[OCTDLClass],
         config: ClientConfig
     ) -> None:
         super().__init__(train_loader, val_loader, classes, config)
         named_model_params = self.model.named_parameters()
-        self.trainable_param_names = [name for name, param in named_model_params if param.requires_grad]
+        self.trainable_param_names = [
+            name for name, param in named_model_params if param.requires_grad]
 
     def set_parameters(self, parameters: NDArrays):
         new_state_dict = OrderedDict()
         assert len(parameters) == len(self.trainable_param_names)
+        trainable_param_index = 0
         for name, param in self.model.state_dict().items():
             if name in self.trainable_param_names:
-                p = parameters.pop(0)
+                p = parameters[trainable_param_index]
                 new_state_dict[name] = torch.tensor(p)
+                trainable_param_index += 1
             else:
                 new_state_dict[name] = param
-        
+
         self.model.load_state_dict(new_state_dict, strict=True)
 
     def get_parameters(self, config):
@@ -209,7 +212,7 @@ class FedBuffClient(FlClient):
         FedBuff-client algorithm line 4:
         Compute the parameter update, i.e. subtract the trained params from the received ones.
         """
-        received_parameters = parameters.copy()
+        received_parameters = copy.deepcopy(parameters)
         new_parameters, num_examples, _ = super().fit(parameters, config)
 
         update = [received - new for received,

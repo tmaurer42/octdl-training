@@ -1,3 +1,4 @@
+import copy
 from functools import reduce
 from typing import Callable, Optional, Union
 from logging import ERROR, INFO
@@ -118,7 +119,7 @@ class FedBuff(FedAvg):
             num_clients=sample_size
         )
 
-        self.all_parameters[server_round] = parameters
+        self.all_parameters[server_round] = copy.deepcopy(parameters)
 
         client_instructions = []
         for client in clients:

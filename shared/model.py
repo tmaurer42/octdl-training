@@ -127,7 +127,7 @@ def get_mobilenet(
     if transfer_learning:
         for params in mobilenetv2_model.parameters():
             params.requires_grad = False
-
+        
         dense_layer_size = last_layer_input_size // 2
         dense_layer_2_size = last_layer_input_size // 4
         layers.extend([

@@ -47,7 +47,7 @@ def get_fl_study_name(
     loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,
     n_clients: int,
-    buffer_size: Optional[int] = None
+    n_clients_per_round: Optional[int] = None
 ):
     study_name = get_study_name(
         classes,
@@ -56,7 +56,7 @@ def get_fl_study_name(
         loss_fn_type,
         optimization_mode,
     )
-    if buffer_size is None:
+    if n_clients_per_round is None:
         return f"{study_name}_{n_clients}c"
         
-    return f"{study_name}_{n_clients}c_b{buffer_size}"
+    return f"{study_name}_{n_clients}c_{n_clients_per_round}cpr"

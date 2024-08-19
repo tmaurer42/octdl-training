@@ -23,7 +23,7 @@ from shared.utils import get_fl_study_name
 class FLEvalParameters:
     strategy: FLStrategy
     n_clients: int
-    buffer_size: Optional[int]
+    n_clients_per_round: Optional[int]
 
 
 def get_result_db_name(
@@ -51,7 +51,7 @@ def get_study(
             loss_fn_type=loss_fn_type,
             optimization_mode=optimization_mode,
             n_clients=fl_eval_parameters.n_clients,
-            buffer_size=fl_eval_parameters.buffer_size
+            n_clients_per_round=fl_eval_parameters.n_clients_per_round
         )
         results_path = f"results_{fl_eval_parameters.strategy}"
     else:
@@ -132,7 +132,7 @@ def evaluate(
         print(
             f"Federated Learning Strategy: {fl_eval_parameters.strategy}.",
             f"n_clients: {fl_eval_parameters.n_clients}",
-            f"buffer_size: {fl_eval_parameters.buffer_size}" if fl_eval_parameters.buffer_size is not None else "",
+            f"clients per update: {fl_eval_parameters.n_clients_per_round}" if fl_eval_parameters.n_clients_per_round is not None else "",
             f"Lowest aggregated validation loss reached at round {best_round}"
         )
     print(f"Optimization mode: {optimization_mode}")

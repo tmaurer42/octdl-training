@@ -12,7 +12,7 @@ from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
 import torch
 
-from federated_learning.server import get_avg_metrics_fn
+from federated_learning.utils import get_avg_metrics_fn
 from federated_learning.strategy import wrap_strategy
 from shared.metrics import CategoricalMetric
 
@@ -158,8 +158,8 @@ class FedBuff(FedAvg):
 
 
 def get_fedbuff(
-    buffer_size: int,
     n_clients: int,
+    buffer_size: int,
     server_lr: float,
     metrics: list[type[CategoricalMetric]],
     model: torch.nn.Module,
@@ -176,8 +176,8 @@ def get_fedbuff(
         evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn
     )
 
-    fedbuff.init_fedbuff(k=buffer_size, server_lr=server_lr)
-    fedbuff.set_custom_props(
+    fedbuff.init_strategy(
         model, checkpoint_path, on_aggregate_evaluated)
+    fedbuff.init_fedbuff(k=buffer_size, server_lr=server_lr)
 
     return fedbuff

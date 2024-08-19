@@ -51,7 +51,7 @@ def run_study(
     classes: list[OCTDLClass],
     loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,
-    buffer_size: int = None,
+    n_clients_per_round: int = None,
     n_jobs: int = 1,
     n_trials: int = 100,
 ):
@@ -94,15 +94,20 @@ def run_study(
             log(INFO, f"eval loss: {loss}, eval metrics: {metrics}")
             trial.report(loss, round - 1)
             if trial.should_prune():
-                raise optuna.TrialPruned
+                raise optuna.TrialPruned()
 
         if fl_strategy == 'FedAvg':
-            strategy = get_fedavg(n_clients, metrics, model,
-                                  checkpoints_path, on_server_evaluate)
+            strategy = get_fedavg(
+                n_clients, 
+                n_clients_per_round, 
+                metrics, 
+                model,
+                checkpoints_path, on_server_evaluate
+            )
         if fl_strategy == 'FedBuff':
             strategy = get_fedbuff(
-                buffer_size,
                 n_clients,
+                n_clients_per_round,
                 server_lr,
                 metrics,
                 model,
@@ -139,7 +144,7 @@ def run_study(
             # run_fl_simulation throws a custom error when the optuna error is raised
             # so we check again if the current trial should be pruned
             if trial.should_prune():
-                raise optuna.TrialPruned
+                raise optuna.TrialPruned()
             else:
                 raise ex
 
@@ -167,6 +172,10 @@ def run_study(
         direction=optuna.study.StudyDirection.MINIMIZE,
         study_name=study_name,
         storage=f"sqlite:///{db_path}",
+        pruner=optuna.pruners.MedianPruner(
+            # Wait at least 5 rounds to see whether or not to prune
+            n_warmup_steps=5,
+        )
     )
 
     study.optimize(objective, n_trials, n_jobs=n_jobs)
@@ -188,7 +197,7 @@ def main(
     fl_strategy: FLStrategy,
     n_clients: int,
     n_rounds: int,
-    buffer_size: int = None,
+    n_clients_per_round: int,
     n_jobs=1
 ):
     study_name = get_fl_study_name(
@@ -198,7 +207,7 @@ def main(
         loss_fn_type,
         optimization_mode,
         n_clients,
-        buffer_size
+        n_clients_per_round
     )
     run_study(
         study_name=study_name,
@@ -207,7 +216,7 @@ def main(
         transfer_learning=transfer_learning,
         loss_fn_type=loss_fn_type,
         fl_strategy=fl_strategy,
-        buffer_size=buffer_size,
+        n_clients_per_round=n_clients_per_round,
         n_clients=n_clients,
         n_rounds=n_rounds,
         n_trials=100,

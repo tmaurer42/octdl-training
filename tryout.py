@@ -86,18 +86,21 @@ def try_federated():
 
     n_clients = 20
 
+    """
     fedavg = get_fedavg(
         n_clients,
+        10,
         metrics,
-        model,
-        None,
-        callback 
+        model=model, 
+        checkpoint_path='tmp_results',
+        on_aggregate_evaluated=callback 
     )
+    """
 
     fedbuff = get_fedbuff(
         buffer_size=10, 
         n_clients=n_clients, 
-        server_lr=0.2, 
+        server_lr=0.12, 
         metrics=metrics, 
         model=model, 
         checkpoint_path=None,
@@ -106,7 +109,7 @@ def try_federated():
 
     h = run_fl_simulation(
         n_clients=n_clients,
-        n_rounds=40,
+        n_rounds=20,
         dataset_config=DatasetConfig(
             augmentation=False,
             batch_size=16,

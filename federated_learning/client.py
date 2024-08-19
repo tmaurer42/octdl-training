@@ -7,13 +7,13 @@ import numpy as np
 import flwr as fl
 from flwr.common.logger import log
 from flwr.common import NDArrays
-from logging import ERROR, INFO
+from logging import ERROR
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
 from shared.training import LossFnType, train, evaluate
-from shared.data import OCTDLClass, get_balancing_weights
+from shared.data import OCTDLClass
 from shared.model import ModelType, get_model_by_type
 from shared.metrics import CategoricalMetric
 

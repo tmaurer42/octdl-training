@@ -143,6 +143,7 @@ def run_study(
         except Exception as ex:
             # run_fl_simulation throws a custom error when the optuna error is raised
             # so we check again if the current trial should be pruned
+            time.sleep(2)
             if trial.should_prune():
                 raise optuna.TrialPruned()
             else:

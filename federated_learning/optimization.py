@@ -172,10 +172,6 @@ def run_study(
         direction=optuna.study.StudyDirection.MINIMIZE,
         study_name=study_name,
         storage=f"sqlite:///{db_path}",
-        pruner=optuna.pruners.MedianPruner(
-            # Wait at least 5 rounds to see whether or not to prune
-            n_warmup_steps=5,
-        )
     )
 
     study.optimize(objective, n_trials, n_jobs=n_jobs)

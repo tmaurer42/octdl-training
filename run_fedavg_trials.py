@@ -8,20 +8,20 @@ def run_fedbuff_experiments():
     n_clients = 20
     n_total_updates = 260
 
-    for buffer_size in [10, 5, 3]:
-        n_rounds = n_total_updates // buffer_size
+    for clients_per_round in [10, 5, 3]:
+        n_rounds = n_total_updates // clients_per_round
         run_experiment(model_type='ResNet18', transfer_learning=True, loss_fn_type='WeightedCrossEntropy',
                     class_list=classes, optimization_mode='minimize_loss', n_jobs=n_jobs,
-                    fl_strategy='FedBuff', n_clients=n_clients, n_rounds=n_rounds,
-                    n_clients_per_round=buffer_size)
+                    fl_strategy='FedAvg', n_clients=n_clients, n_rounds=n_rounds,
+                    n_clients_per_round=clients_per_round)
         run_experiment(model_type='ResNet18', transfer_learning=False, loss_fn_type='WeightedCrossEntropy',
                     class_list=classes, optimization_mode='minimize_loss', n_jobs=n_jobs,
-                    fl_strategy='FedBuff', n_clients=n_clients, n_rounds=n_rounds,
-                    n_clients_per_round=buffer_size)
+                    fl_strategy='FedAvg', n_clients=n_clients, n_rounds=n_rounds,
+                    n_clients_per_round=clients_per_round)
         run_experiment(model_type='MobileNetV2', transfer_learning=True, loss_fn_type='WeightedCrossEntropy',
                     class_list=classes, optimization_mode='minimize_loss', n_jobs=n_jobs,
-                    fl_strategy='FedBuff', n_clients=n_clients, n_rounds=n_rounds,
-                    n_clients_per_round=buffer_size)
+                    fl_strategy='FedAvg', n_clients=n_clients, n_rounds=n_rounds,
+                    n_clients_per_round=clients_per_round)
 
 
 if __name__ == "__main__":

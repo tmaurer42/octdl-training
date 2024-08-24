@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
 import numpy as np
 
-from shared.metrics import CategoricalMetric
+from shared.metrics import CategoricalMetric, F1ScoreMacro
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -21,6 +21,7 @@ LossFnType = Literal["CrossEntropy", "WeightedCrossEntropy"]
 class EarlyStopping:
     patience: int
     from_epoch: int
+    optimization_mode: Optional[OptimizationMode] = 'minimize_loss'
 
 
 @dataclass
@@ -196,6 +197,7 @@ def train(
     metric_names = [metric.name() for metric in metrics]
 
     best_val_loss = float('inf')
+    best_f1_macro = float('-inf')
     early_stopping_counter = 0
 
     for epoch in range(epochs):
@@ -259,11 +261,20 @@ def train(
             )
 
         if early_stopping is not None and val_loader is not None:
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                early_stopping_counter = 0
-            elif epoch >= early_stopping.from_epoch:
-                early_stopping_counter += 1
+            if early_stopping.optimization_mode == 'maximize_f1_macro':
+                val_f1_macro = val_metrics[F1ScoreMacro.name()]
+                if val_f1_macro > best_f1_macro:
+                    best_f1_macro = val_f1_macro
+                    early_stopping_counter = 0
+                elif epoch >= early_stopping.from_epoch:
+                    early_stopping_counter += 1
+
+            if early_stopping.optimization_mode == 'minimize_loss':
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    early_stopping_counter = 0
+                elif epoch >= early_stopping.from_epoch:
+                    early_stopping_counter += 1
 
             if early_stopping_counter >= early_stopping.patience:
                 break

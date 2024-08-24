@@ -3,6 +3,7 @@ import time
 import os
 
 import optuna
+from optuna.study import StudyDirection
 import torch
 from flwr.common.logger import log
 
@@ -32,11 +33,10 @@ def load_weights(fl_strategy: FLStrategy, model: torch.nn.Module, study_name, tr
         get_checkpoints_folder_path(study_name, fl_strategy),
         f"trial_{trial_number}"
     )
-    weights_path = os.path.join(path, f"model_round_{round}.pth")
+    weights_path = os.path.join(path, f"best_model.pth")
 
     if not os.path.exists(weights_path):
-        print(f"Unable to load weights from path: {weights_path}")
-        return
+        raise Exception(f"Unable to load weights from path: {weights_path}")
     model.load_state_dict(torch.load(
         weights_path, map_location=torch.device('cpu')))
 
@@ -55,9 +55,6 @@ def run_study(
     n_jobs: int = 1,
     n_trials: int = 100,
 ):
-    if optimization_mode == 'maximize_f1_macro':
-        raise ValueError("maximize_f1_macro is not supported in FL")
-
     results_path = get_results_path(fl_strategy)
 
     def objective(trial: optuna.Trial):
@@ -92,7 +89,12 @@ def run_study(
 
         def on_server_evaluate(round, loss, metrics):
             log(INFO, f"eval loss: {loss}, eval metrics: {metrics}")
-            trial.report(loss, round - 1)
+            f1_macro = metrics[F1ScoreMacro.name()]
+            if optimization_mode == 'minimize_loss':
+                trial.report(loss, round - 1)
+            elif optimization_mode == 'maximize_f1_macro':
+                trial.report(f1_macro, round - 1)
+
             if trial.should_prune():
                 raise optuna.TrialPruned()
 
@@ -101,6 +103,7 @@ def run_study(
                 n_clients, 
                 n_clients_per_round, 
                 metrics, 
+                optimization_mode,
                 model,
                 checkpoints_path, on_server_evaluate
             )
@@ -110,6 +113,7 @@ def run_study(
                 n_clients_per_round,
                 server_lr,
                 metrics,
+                optimization_mode,
                 model,
                 checkpoints_path,
                 on_server_evaluate
@@ -150,27 +154,40 @@ def run_study(
                 raise ex
 
         bal_accuracies = history.metrics_distributed[BalancedAccuracy.name()]
-        f1_macro_scores = history.metrics_distributed[F1ScoreMacro.name()]
 
-        losses = history.losses_distributed
-        lowest_loss = min(losses, key=lambda round_loss: round_loss[1])
+        if optimization_mode == 'minimize_loss':
+            losses = history.losses_distributed
+            lowest_loss = min(losses, key=lambda round_loss: round_loss[1])
+            lowest_loss_round = lowest_loss[0]
+            trial.set_user_attr(BalancedAccuracy.name(),
+                                bal_accuracies[lowest_loss_round - 1])
+            trial.set_user_attr(F1ScoreMacro.name(),
+                                f1_macro_scores[lowest_loss_round - 1])
 
-        lowest_loss_round = lowest_loss[0]
-        bal_accuracies = history.metrics_distributed[BalancedAccuracy.name()]
-        f1_macro_scores = history.metrics_distributed[F1ScoreMacro.name()]
-        trial.set_user_attr(BalancedAccuracy.name(),
-                            bal_accuracies[lowest_loss_round - 1])
-        trial.set_user_attr(F1ScoreMacro.name(),
-                            f1_macro_scores[lowest_loss_round - 1])
+            return lowest_loss[1]                
 
-        return lowest_loss[1]
+        if optimization_mode == 'maximize_f1_macro':
+            f1_macro_scores = history.metrics_distributed[F1ScoreMacro.name()]
+            highest_f1_macro_score = max(f1_macro_scores, key=lambda round_f1_score: round_f1_score[1])
+            highest_f1_macro_score_round = highest_f1_macro_score[0]
+            trial.set_user_attr(BalancedAccuracy.name(),
+                                bal_accuracies[highest_f1_macro_score_round - 1])
+            trial.set_user_attr(F1ScoreMacro.name(),
+                                f1_macro_scores[highest_f1_macro_score_round - 1])
+
+            return highest_f1_macro_score[1]
 
     db_path = os.path.join(results_path, f"results.sqlite3")
     if not os.path.exists(results_path):
         os.makedirs(results_path)
 
+    if optimization_mode == 'minimize_loss':
+        direction = StudyDirection.MINIMIZE
+    elif optimization_mode == 'maximize_f1_macro':
+        direction = StudyDirection.MAXIMIZE
+
     study = optuna.create_study(
-        direction=optuna.study.StudyDirection.MINIMIZE,
+        direction=direction,
         study_name=study_name,
         storage=f"sqlite:///{db_path}",
     )
@@ -217,6 +234,6 @@ def main(
         n_clients=n_clients,
         n_rounds=n_rounds,
         n_trials=100,
-        optimization_mode='minimize_loss',
+        optimization_mode=optimization_mode,
         n_jobs=n_jobs,
     )

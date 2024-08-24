@@ -7,12 +7,14 @@ import torch
 from federated_learning.utils import get_avg_metrics_fn
 from federated_learning.strategy import wrap_strategy
 from shared.metrics import CategoricalMetric
+from shared.training import OptimizationMode
 
 
 def get_fedavg(
     n_clients: int,
     n_fit_clients_per_round: int,
     metrics: list[type[CategoricalMetric]],
+    optimization_mode: OptimizationMode,
     model: torch.nn.Module,
     checkpoint_path: str,
     on_aggregate_evaluated: Callable[[int, float, Metrics], None]
@@ -30,6 +32,6 @@ def get_fedavg(
     )
 
     federated_average.init_strategy(
-        model, checkpoint_path, on_aggregate_evaluated)
+        optimization_mode, model, checkpoint_path, on_aggregate_evaluated)
 
     return federated_average

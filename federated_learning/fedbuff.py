@@ -15,6 +15,7 @@ import torch
 from federated_learning.utils import get_avg_metrics_fn
 from federated_learning.strategy import wrap_strategy
 from shared.metrics import CategoricalMetric
+from shared.training import OptimizationMode
 
 
 def random_halfnormal_variate(max):
@@ -162,6 +163,7 @@ def get_fedbuff(
     buffer_size: int,
     server_lr: float,
     metrics: list[type[CategoricalMetric]],
+    optimization_mode: OptimizationMode,
     model: torch.nn.Module,
     checkpoint_path: str,
     on_aggregate_evaluated: Callable[[int, float, Metrics], None]
@@ -177,7 +179,7 @@ def get_fedbuff(
     )
 
     fedbuff.init_strategy(
-        model, checkpoint_path, on_aggregate_evaluated)
+        optimization_mode, model, checkpoint_path, on_aggregate_evaluated)
     fedbuff.init_fedbuff(k=buffer_size, server_lr=server_lr)
 
     return fedbuff

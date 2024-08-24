@@ -80,7 +80,7 @@ def try_federated():
         print(m)
 
     model = get_model_by_type(
-            'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
+            'ResNet18', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
 
     device = torch.device("mps")
 
@@ -98,10 +98,11 @@ def try_federated():
     """
 
     fedbuff = get_fedbuff(
-        buffer_size=10, 
+        buffer_size=5, 
         n_clients=n_clients, 
         server_lr=0.12, 
         metrics=metrics, 
+        optimization_mode='maximize_f1_macro',
         model=model, 
         checkpoint_path=None,
         on_aggregate_evaluated=callback
@@ -118,10 +119,10 @@ def try_federated():
         client_config=ClientConfig(
             device=device,
             dropout=0.2,
-            epochs=1,
+            epochs=2,
             loss_fn_type='WeightedCrossEntropy',
             lr=0.0023,
-            model_type='MobileNetV2',
+            model_type='ResNet18',
             transfer_learning=True,
             metrics=metrics
         ),

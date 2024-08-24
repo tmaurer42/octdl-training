@@ -108,8 +108,8 @@ class FlClient(fl.client.NumPyClient):
 
         return torch.tensor(class_weights, dtype=torch.float)
 
-    def get_loss_fn(self, eval=False):
-        if self.loss_fn_type == 'CrossEntropy' or eval:
+    def get_loss_fn(self):
+        if self.loss_fn_type == 'CrossEntropy':
             loss_fn = nn.CrossEntropyLoss()
         elif self.loss_fn_type == 'WeightedCrossEntropy':
             balancing_weights = self.compute_class_weights()
@@ -144,7 +144,7 @@ class FlClient(fl.client.NumPyClient):
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
 
-        loss_fn = self.get_loss_fn(eval=True)
+        loss_fn = self.get_loss_fn()
 
         metrics, loss, _ = evaluate(
             model=self.model,

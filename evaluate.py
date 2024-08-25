@@ -79,15 +79,16 @@ def evaluate(
     optimization_mode: OptimizationMode,
     loss_fn_type: LossFnType,
     fl_eval_parameters: Optional[FLEvalParameters] = None
-):  
+):
     study = get_study(
-        classes, model_type, transfer_learning, 
+        classes, model_type, transfer_learning,
         loss_fn_type, optimization_mode, fl_eval_parameters)
 
     study_name = study.study_name
     best_trial = study.best_trial
 
-    _, _, test_loader = prepare_dataset(classes=classes, augmentation=False, batch_size=128)
+    _, _, test_loader = prepare_dataset(
+        classes=classes, augmentation=False, batch_size=1, validation_batch_size=32)
 
     model = get_model_by_type(model_type, transfer_learning, classes, 0.0)
 
@@ -97,7 +98,7 @@ def evaluate(
         study_values = study.best_trial.intermediate_values
         best_round = min(study_values, key=study_values.get) + 1
         load_weigths_fl(fl_eval_parameters.strategy, model, study_name,
-            study.best_trial.number, best_round)
+                        study.best_trial.number, best_round)
 
     all_preds = []
     all_labels = []
@@ -122,7 +123,7 @@ def evaluate(
         all_labels, all_preds, average='binary', pos_label=0)
 
     classes_str = ','.join([cls.name for cls in classes])
-    
+
     print()
     print(
         f">> Evaluation on testset for [{classes_str}] using model {model_type}",

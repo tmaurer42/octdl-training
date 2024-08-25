@@ -89,6 +89,7 @@ def prepare_dataset(
     classes: list[OCTDLClass],
     augmentation: bool,
     batch_size: int,
+    validation_batch_size: int,
     img_target_size=224,
     ds_dir: str = './OCTDL',
     labels_file: str = 'OCTDL_labels.csv'
@@ -100,7 +101,8 @@ def prepare_dataset(
         n_partitions=1,
         img_target_size=img_target_size,
         ds_dir=ds_dir,
-        labels_file=labels_file
+        labels_file=labels_file,
+        validation_batch_size=validation_batch_size
     )
     train_loader, val_loader = train_loaders[0], val_loaders[0]
 
@@ -143,6 +145,7 @@ def prepare_dataset_partitioned(
     classes: list[OCTDLClass],
     augmentation: bool,
     batch_size: int,
+    validation_batch_size: int,
     n_partitions: int,
     img_target_size=224,
     ds_dir: str = './OCTDL',
@@ -159,7 +162,7 @@ def prepare_dataset_partitioned(
 
     train_loaders = [DataLoader(train_ds, batch_size, shuffle=True)
                     for train_ds in train_datasets]
-    val_loaders = [DataLoader(val_ds, batch_size, shuffle=False)
+    val_loaders = [DataLoader(val_ds, validation_batch_size, shuffle=False)
                     for val_ds in val_datasets]
     test_loader = DataLoader(test_dataset, batch_size, shuffle=False)
 

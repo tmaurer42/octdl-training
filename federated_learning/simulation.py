@@ -22,13 +22,14 @@ def run_fl_simulation(
     dataset_config: DatasetConfig,
     client_config: ClientConfig,
     strategy: fl.server.strategy.Strategy,
-    strategy_name: FLStrategy
+    strategy_name: FLStrategy,
 ) -> fl.server.History :
     train_loaders, val_loaders, _ = prepare_dataset_partitioned(
         classes=dataset_config.classes,
         augmentation=dataset_config.augmentation,
         batch_size=dataset_config.batch_size,
         n_partitions=n_clients,
+        validation_batch_size=client_config.validation_batch_size
     )
 
     if strategy_name == 'FedAvg':

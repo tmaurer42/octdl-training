@@ -70,7 +70,8 @@ def run_study(
             classes=classes,
             augmentation=apply_augmentation,
             batch_size=batch_size,
-            img_target_size=image_size
+            img_target_size=image_size,
+            validation_batch_size=32
         )
 
         # Initialize model

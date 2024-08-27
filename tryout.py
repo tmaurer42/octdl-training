@@ -75,6 +75,7 @@ def try_centralized():
 
 
 def try_federated():
+    torch.backends.cuda.matmul.allow_tf32 = True
     metrics = [BalancedAccuracy, F1ScoreMacro]
     def callback(round, loss, m):
         print(f"I AM THE CALLBACK FROM ROUND {round}, the loss is {loss}")
@@ -83,7 +84,7 @@ def try_federated():
     model = get_model_by_type(
             'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
 
-    device = torch.device("mps")
+    device = set_device()
 
     n_clients = 20
 

@@ -163,7 +163,7 @@ def prepare_dataset_partitioned(
 
     train_loaders = [DataLoader(train_ds, batch_size, shuffle=True, num_workers=n_workers)
                     for train_ds in train_datasets]
-    val_loaders = [DataLoader(val_ds, validation_batch_size, shuffle=False, num_workers=n_workers)
+    val_loaders = [DataLoader(val_ds, validation_batch_size, shuffle=False)
                     for val_ds in val_datasets]
     test_loader = DataLoader(test_dataset, batch_size, shuffle=False)
 

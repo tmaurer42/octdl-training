@@ -12,7 +12,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from shared.training import LossFnType, train, evaluate
+from shared.training import LossFnType, eval_cudann, train, evaluate, train_cudann
 from shared.data import OCTDLClass
 from shared.model import ModelType, get_model_by_type
 from shared.metrics import CategoricalMetric
@@ -40,7 +40,8 @@ class ClientConfig:
     lr: float
     loss_fn_type: LossFnType
     metrics: list[type[CategoricalMetric]]
-    validation_batch_size: int = 32
+    validation_batch_size: int = 32,
+    cudann_optimized: bool = False
 
 
 class FlClient(fl.client.NumPyClient):
@@ -60,6 +61,7 @@ class FlClient(fl.client.NumPyClient):
         self.epochs = config.epochs
         self.lr = config.lr
         self.loss_fn_type = config.loss_fn_type
+        self.cudann_optimized = config.cudann_optimized
         self.metrics = [
             m() for m in config.metrics
         ]
@@ -125,20 +127,31 @@ class FlClient(fl.client.NumPyClient):
         loss_fn = self.get_loss_fn()
         optim = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
-        train_gen = train(
-            model=self.model,
-            epochs=self.epochs,
-            train_loader=self.train_loader,
-            loss_fn=loss_fn,
-            optimizer=optim,
-            device=self.device,
-            print_batch_info=False,
-            print_epoch_info=False,
-            adapt_lr=(lambda b: self.lr * b/self.train_loader.batch_size)
-        )
-        for round in train_gen:
-            if math.isnan(round.train_loss):
-                log(ERROR, "Train loss is nan!")
+        if self.cudann_optimized:
+            train_cudann(
+                model=self.model,
+                epochs=self.epochs,
+                train_loader=self.train_loader,
+                loss_fn=loss_fn,
+                optimizer=optim,
+                device=self.device,
+                adapt_lr=(lambda b: self.lr * b/self.train_loader.batch_size),
+            )
+        else:
+            train_gen = train(
+                model=self.model,
+                epochs=self.epochs,
+                train_loader=self.train_loader,
+                loss_fn=loss_fn,
+                optimizer=optim,
+                device=self.device,
+                print_batch_info=False,
+                print_epoch_info=False,
+                adapt_lr=(lambda b: self.lr * b/self.train_loader.batch_size)
+            )
+            for round in train_gen:
+                if math.isnan(round.train_loss):
+                    log(ERROR, "Train loss is nan!")
 
         return self.get_parameters({}), len(self.train_loader.dataset), {}
 
@@ -147,6 +160,14 @@ class FlClient(fl.client.NumPyClient):
 
         loss_fn = self.get_loss_fn()
 
+        if self.cudann_optimized:
+            eval_cudann(
+                model=self.model,
+                data_loader=self.val_loader,
+                device=self.device,
+                loss_fn=loss_fn,
+                metrics=self.metrics,
+            )
         metrics, loss, _ = evaluate(
             model=self.model,
             data_loader=self.val_loader,
@@ -213,7 +234,7 @@ class FedBuffClient(FlClient):
         FedBuff-client algorithm line 4:
         Compute the parameter update, i.e. subtract the trained params from the received ones.
         """
-        received_parameters = copy.deepcopy(parameters)
+        received_parameters = copy.copy(parameters)
         new_parameters, num_examples, _ = super().fit(parameters, config)
 
         update = [received - new for received,

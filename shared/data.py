@@ -149,7 +149,8 @@ def prepare_dataset_partitioned(
     n_partitions: int,
     img_target_size=224,
     ds_dir: str = './OCTDL',
-    labels_file: str = 'OCTDL_labels.csv'
+    labels_file: str = 'OCTDL_labels.csv',
+    n_workers: int = 0
 ) -> tuple[list[DataLoader], list[DataLoader], DataLoader]:
     train_datasets, val_datasets, test_dataset = get_partitioned_data(
         classes,
@@ -160,9 +161,9 @@ def prepare_dataset_partitioned(
         labels_file
     )
 
-    train_loaders = [DataLoader(train_ds, batch_size, shuffle=True)
+    train_loaders = [DataLoader(train_ds, batch_size, shuffle=True, num_workers=n_workers)
                     for train_ds in train_datasets]
-    val_loaders = [DataLoader(val_ds, validation_batch_size, shuffle=False)
+    val_loaders = [DataLoader(val_ds, validation_batch_size, shuffle=False, num_workers=n_workers)
                     for val_ds in val_datasets]
     test_loader = DataLoader(test_dataset, batch_size, shuffle=False)
 

@@ -34,7 +34,8 @@ def try_centralized():
         classes=classes,
         augmentation=apply_augmentation,
         batch_size=batch_size,
-        img_target_size=image_size
+        img_target_size=image_size,
+        validation_batch_size=32
     )
 
     print(len(train_loader.dataset))
@@ -80,7 +81,7 @@ def try_federated():
         print(m)
 
     model = get_model_by_type(
-            'ResNet18', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
+            'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
 
     device = torch.device("mps")
 
@@ -100,7 +101,7 @@ def try_federated():
     fedbuff = get_fedbuff(
         buffer_size=5, 
         n_clients=n_clients, 
-        server_lr=0.12, 
+        server_lr=0.03, 
         metrics=metrics, 
         optimization_mode='maximize_f1_macro',
         model=model, 
@@ -113,26 +114,29 @@ def try_federated():
         n_rounds=20,
         dataset_config=DatasetConfig(
             augmentation=False,
-            batch_size=16,
-            classes=[OCTDLClass.AMD, OCTDLClass.NO]
+            batch_size=64,
+            classes=[OCTDLClass.AMD, OCTDLClass.NO],
+            n_workers=4
         ),
         client_config=ClientConfig(
             device=device,
             dropout=0.2,
-            epochs=2,
+            epochs=5,
             loss_fn_type='WeightedCrossEntropy',
-            lr=0.0023,
-            model_type='ResNet18',
+            lr=0.012,
+            model_type='MobileNetV2',
             transfer_learning=True,
-            metrics=metrics
+            metrics=metrics,
+            validation_batch_size=128,
+            cudann_optimized=True,
         ),
         strategy=fedbuff,
         strategy_name='FedBuff'
     )
 
-    _, val_loader, _ = prepare_dataset([OCTDLClass.AMD, OCTDLClass.NO],False,128)
+    _, val_loader, test_loader = prepare_dataset([OCTDLClass.AMD, OCTDLClass.NO],False,1,32)
 
-    metrics, loss, cm = evaluate(model, val_loader, nn.CrossEntropyLoss(), [BalancedAccuracy(), F1ScoreMacro()], device)
+    metrics, loss, cm = evaluate(model, test_loader, nn.CrossEntropyLoss(), [BalancedAccuracy(), F1ScoreMacro()], device)
     
     print(metrics)
     sys.exit(0)

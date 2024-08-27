@@ -120,7 +120,7 @@ class FedBuff(FedAvg):
             num_clients=sample_size
         )
 
-        self.all_parameters[server_round] = copy.deepcopy(parameters)
+        self.all_parameters[server_round] = copy.copy(parameters)
 
         client_instructions = []
         for client in clients:

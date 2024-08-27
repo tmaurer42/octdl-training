@@ -14,6 +14,7 @@ class DatasetConfig():
     classes: list[OCTDLClass]
     augmentation: bool
     batch_size: int
+    n_workers: int = 0
 
 
 def run_fl_simulation(
@@ -29,7 +30,8 @@ def run_fl_simulation(
         augmentation=dataset_config.augmentation,
         batch_size=dataset_config.batch_size,
         n_partitions=n_clients,
-        validation_batch_size=client_config.validation_batch_size
+        validation_batch_size=client_config.validation_batch_size,
+        n_workers=dataset_config.n_workers
     )
 
     if strategy_name == 'FedAvg':

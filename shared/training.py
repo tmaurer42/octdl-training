@@ -231,7 +231,6 @@ def train(
             running_loss += batch_loss
 
             if print_batch_info:
-                print("print_batch_info is not supported anymore")
                 preds = preds.cpu().numpy()
                 labels = labels.cpu().numpy()
                 train_metrics = [metric.update(preds, labels) for metric in metrics]
@@ -314,7 +313,8 @@ def train_optimized(
                 for group in optimizer.param_groups:
                     group['lr'] = adapt_lr(len(data))
 
-            optimizer.zero_grad(set_to_none=True)
+            for param in model.parameters():
+                param.grad = None
             outputs = model(images)
 
             loss = loss_fn(outputs, labels)

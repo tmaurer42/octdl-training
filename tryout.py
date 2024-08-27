@@ -82,7 +82,7 @@ def try_federated():
         print(m)
 
     model = get_model_by_type(
-            'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
+            'ResNet18', False, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
 
     device = set_device()
 
@@ -100,9 +100,9 @@ def try_federated():
     """
 
     fedbuff = get_fedbuff(
-        buffer_size=5, 
+        buffer_size=10, 
         n_clients=n_clients, 
-        server_lr=0.03, 
+        server_lr=0.1, 
         metrics=metrics, 
         optimization_mode='maximize_f1_macro',
         model=model, 
@@ -125,8 +125,8 @@ def try_federated():
             epochs=5,
             loss_fn_type='WeightedCrossEntropy',
             lr=0.012,
-            model_type='MobileNetV2',
-            transfer_learning=True,
+            model_type='ResNet18',
+            transfer_learning=False,
             metrics=metrics,
             validation_batch_size=128,
             optimized=True,

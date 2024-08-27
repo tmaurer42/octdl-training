@@ -135,6 +135,12 @@ class FedBuff(FedAvg):
             fit_ins.config['staleness'] = staleness
             client_instructions.append((client, fit_ins))
 
+        min_param_version = min(list(self.clients_param_version.values()))
+        param_versions = list(self.all_parameters.keys())
+        for param_version in param_versions:
+            if param_version < min_param_version:
+                self.all_parameters[param_version] = None
+
         return client_instructions
 
     def aggregate_fit(

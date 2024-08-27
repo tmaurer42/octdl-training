@@ -14,7 +14,7 @@ class DatasetConfig():
     classes: list[OCTDLClass]
     augmentation: bool
     batch_size: int
-    n_workers: int = 0,
+    n_workers: int = 0
     pin_memory: bool = False
 
 

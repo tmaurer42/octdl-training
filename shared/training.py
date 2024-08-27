@@ -2,8 +2,7 @@ from dataclasses import dataclass
 from typing import Callable, Literal, Optional
 
 import torch
-from torch import nn, autocast
-from torch.cuda.amp import GradScaler
+from torch import nn
 from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
 import numpy as np
@@ -302,7 +301,6 @@ def train_optimized(
 ):
     model.to(device)
     loss_fn.to(device)
-    scaler = GradScaler()
     train_loader.pin_memory = True
 
     model.train()
@@ -317,13 +315,12 @@ def train_optimized(
                     group['lr'] = adapt_lr(len(data))
 
             optimizer.zero_grad(set_to_none=True)
-            with autocast(device_type='cuda', dtype=torch.float16):
-                outputs = model(images)
-                _, preds = torch.max(outputs.data, 1)
-                loss = loss_fn(outputs, labels)
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+            outputs = model(images)
+            _, preds = torch.max(outputs.data, 1)
+
+            loss = loss_fn(outputs, labels)
+            loss.backward()
+            optimizer.step()
 
 def eval_optimized(
     model: nn.Module,
@@ -334,7 +331,6 @@ def eval_optimized(
 ):
     model.to(device)
     loss_fn.to(device)
-    scaler = GradScaler()
     data_loader.pin_memory = True
     
     running_loss = 0.0
@@ -348,11 +344,10 @@ def eval_optimized(
             images = images.to(device)
             labels = labels.to(device)
 
-            with autocast(device_type='cuda', dtype=torch.float16):
-                outputs = model(images)
-                _, preds = torch.max(outputs.data, 1)
-                loss = loss_fn(outputs, labels)
-            running_loss += scaler.scale(loss).item()
+            outputs = model(images)
+            _, preds = torch.max(outputs.data, 1)
+            loss = loss_fn(outputs, labels)
+            running_loss += loss.item()
 
             all_preds = torch.cat((all_preds, preds), dim=0)
             all_labels = torch.cat((all_labels, labels), dim=0)

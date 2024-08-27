@@ -117,6 +117,7 @@ def try_federated():
             augmentation=False,
             batch_size=64,
             classes=[OCTDLClass.AMD, OCTDLClass.NO],
+            pin_memory=True
         ),
         client_config=ClientConfig(
             device=device,

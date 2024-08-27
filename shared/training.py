@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from typing import Callable, Literal, Optional
 
 import torch
-from torch import nn
-from torch.amp import autocast, GradScaler
+from torch import nn, autocast
+from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
 import numpy as np

@@ -26,7 +26,7 @@ def random_halfnormal_variate(max):
         return 0
 
     value = float('inf')
-    while value > max:
+    while value > max + 1e-7:
         value = int(math.floor(abs(norm.rvs(scale=max/4))))
 
     return value

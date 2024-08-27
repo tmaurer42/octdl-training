@@ -291,7 +291,7 @@ def train(
             if early_stopping_counter >= early_stopping.patience:
                 break
 
-def train_cudann(
+def train_optimized(
     model: nn.Module,
     epochs: int,
     train_loader: DataLoader,
@@ -325,7 +325,7 @@ def train_cudann(
             scaler.step(optimizer)
             scaler.update()
 
-def eval_cudann(
+def eval_optimized(
     model: nn.Module,
     data_loader: DataLoader,
     loss_fn: nn.CrossEntropyLoss,
@@ -353,7 +353,7 @@ def eval_cudann(
                 _, preds = torch.max(outputs.data, 1)
                 loss = loss_fn(outputs, labels)
             running_loss += scaler.scale(loss).item()
-            
+
             all_preds = torch.cat((all_preds, preds), dim=0)
             all_labels = torch.cat((all_labels, labels), dim=0)
 

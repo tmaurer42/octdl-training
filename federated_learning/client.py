@@ -12,7 +12,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from shared.training import LossFnType, eval_cudann, train, evaluate, train_cudann
+from shared.training import LossFnType, eval_optimized, train, evaluate, train_optimized
 from shared.data import OCTDLClass
 from shared.model import ModelType, get_model_by_type
 from shared.metrics import CategoricalMetric
@@ -41,7 +41,7 @@ class ClientConfig:
     loss_fn_type: LossFnType
     metrics: list[type[CategoricalMetric]]
     validation_batch_size: int = 32,
-    cudann_optimized: bool = False
+    optimized: bool = False
 
 
 class FlClient(fl.client.NumPyClient):
@@ -61,7 +61,7 @@ class FlClient(fl.client.NumPyClient):
         self.epochs = config.epochs
         self.lr = config.lr
         self.loss_fn_type = config.loss_fn_type
-        self.cudann_optimized = config.cudann_optimized
+        self.optimized = config.optimized
         self.metrics = [
             m() for m in config.metrics
         ]
@@ -127,8 +127,8 @@ class FlClient(fl.client.NumPyClient):
         loss_fn = self.get_loss_fn()
         optim = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
-        if self.cudann_optimized:
-            train_cudann(
+        if self.optimized:
+            train_optimized(
                 model=self.model,
                 epochs=self.epochs,
                 train_loader=self.train_loader,
@@ -160,8 +160,8 @@ class FlClient(fl.client.NumPyClient):
 
         loss_fn = self.get_loss_fn()
 
-        if self.cudann_optimized:
-            eval_cudann(
+        if self.optimized:
+            eval_optimized(
                 model=self.model,
                 data_loader=self.val_loader,
                 device=self.device,

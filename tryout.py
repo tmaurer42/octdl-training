@@ -116,7 +116,6 @@ def try_federated():
             augmentation=False,
             batch_size=64,
             classes=[OCTDLClass.AMD, OCTDLClass.NO],
-            n_workers=4
         ),
         client_config=ClientConfig(
             device=device,
@@ -128,7 +127,7 @@ def try_federated():
             transfer_learning=True,
             metrics=metrics,
             validation_batch_size=128,
-            cudann_optimized=True,
+            optimized=True,
         ),
         strategy=fedbuff,
         strategy_name='FedBuff'

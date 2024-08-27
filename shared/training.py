@@ -316,7 +316,6 @@ def train_optimized(
 
             optimizer.zero_grad(set_to_none=True)
             outputs = model(images)
-            _, preds = torch.max(outputs.data, 1)
 
             loss = loss_fn(outputs, labels)
             loss.backward()

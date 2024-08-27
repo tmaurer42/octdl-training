@@ -353,9 +353,7 @@ def eval_cudann(
                 _, preds = torch.max(outputs.data, 1)
                 loss = loss_fn(outputs, labels)
             running_loss += scaler.scale(loss).item()
-
-            scaler.update()
-
+            
             all_preds = torch.cat((all_preds, preds), dim=0)
             all_labels = torch.cat((all_labels, labels), dim=0)
 

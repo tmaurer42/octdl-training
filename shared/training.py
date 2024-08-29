@@ -300,7 +300,6 @@ def train_optimized(
 ):
     model.to(device)
     loss_fn.to(device)
-    train_loader.pin_memory = True
 
     model.train()
     for _ in range(epochs):
@@ -330,7 +329,6 @@ def eval_optimized(
 ):
     model.to(device)
     loss_fn.to(device)
-    data_loader.pin_memory = True
     
     running_loss = 0.0
     all_preds = torch.tensor([], device=device)

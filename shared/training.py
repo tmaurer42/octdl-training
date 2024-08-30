@@ -170,7 +170,7 @@ def train(
     val_loader: Optional[DataLoader] = None,
     early_stopping: Optional[EarlyStopping] = None,
     adapt_lr: Optional[Callable[[float], float]] = None,
-    print_batch_info = True,
+    print_batch_info = False,
     print_epoch_info = True,
 ):
     """
@@ -205,13 +205,15 @@ def train(
             print(f"Epoch {epoch + 1}")
         model.train()
         running_loss = 0.0
+        all_preds = torch.tensor([], device=device)
+        all_labels = torch.tensor([],  device=device)
 
         for i, data in enumerate(train_loader):
             images, labels = data
             images = images.to(device)
             labels = labels.to(device)
 
-            if adapt_lr is not None:
+            if adapt_lr is not None and len(data) != train_loader.batch_size:
                 for group in optimizer.param_groups:
                     group['lr'] = adapt_lr(len(labels))
 
@@ -222,19 +224,27 @@ def train(
             loss.backward()
             optimizer.step()
 
+            all_preds = torch.cat((all_preds, preds), dim=0)
+            all_labels = torch.cat((all_labels, labels), dim=0)
+
             batch_loss = loss.item()
             running_loss += batch_loss
 
-            preds = preds.cpu().numpy()
-            labels = labels.cpu().numpy()
-            train_metrics = [metric.update(preds, labels) for metric in metrics]
-
-            train_loss = running_loss / (i + 1)
             if print_batch_info:
-                print_stats(metric_names, train_metrics,
-                            train_loss, None, None, replace_ln=True)
+                preds = preds.cpu().numpy()
+                labels = labels.cpu().numpy()
+                train_metrics = [metric.update(preds, labels) for metric in metrics]
+
+                train_loss = running_loss / (i + 1)
+                if print_batch_info:
+                    print_stats(metric_names, train_metrics,
+                                train_loss, None, None, replace_ln=True)
         
         train_loss = running_loss / len(train_loader)
+        [metric.update(
+            all_preds.cpu().tolist(),
+            all_labels.cpu().tolist()
+        ) for metric in metrics]
 
         train_metrics = [metric.compute() for metric in metrics]
         for metric in metrics:
@@ -278,3 +288,78 @@ def train(
 
             if early_stopping_counter >= early_stopping.patience:
                 break
+
+def train_optimized(
+    model: nn.Module,
+    epochs: int,
+    train_loader: DataLoader,
+    loss_fn,
+    optimizer: torch.optim.Optimizer,
+    device: torch.device,
+    adapt_lr: Optional[Callable[[float], float]] = None,
+):
+    model.to(device)
+    loss_fn.to(device)
+
+    model.train()
+    for _ in range(epochs):
+        for data in train_loader:
+            images, labels = data
+            images = images.to(device)
+            labels = labels.to(device)
+
+            if adapt_lr is not None and len(data) != train_loader.batch_size:
+                for group in optimizer.param_groups:
+                    group['lr'] = adapt_lr(len(data))
+
+            for param in model.parameters():
+                param.grad = None
+            outputs = model(images)
+
+            loss = loss_fn(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+def eval_optimized(
+    model: nn.Module,
+    data_loader: DataLoader,
+    loss_fn: nn.CrossEntropyLoss,
+    metrics: list[CategoricalMetric],
+    device: torch.device,
+):
+    model.to(device)
+    loss_fn.to(device)
+    
+    running_loss = 0.0
+    all_preds = torch.tensor([], device=device)
+    all_labels = torch.tensor([],  device=device)
+
+    model.eval()
+    with torch.no_grad():
+        for data in data_loader:
+            images, labels = data
+            images = images.to(device)
+            labels = labels.to(device)
+
+            outputs = model(images)
+            _, preds = torch.max(outputs.data, 1)
+            loss = loss_fn(outputs, labels)
+            running_loss += loss.item()
+
+            all_preds = torch.cat((all_preds, preds), dim=0)
+            all_labels = torch.cat((all_labels, labels), dim=0)
+
+    avg_loss = running_loss / len(data_loader)
+
+    all_preds = all_preds.cpu().numpy()
+    all_labels = all_labels.cpu().numpy()
+
+    for metric in metrics:
+        metric.update(all_preds, all_labels)
+    computed_metrics = [metric.compute() for metric in metrics]
+    for metric in metrics:
+        metric.reset()
+
+    cm = confusion_matrix(all_labels, all_preds)
+
+    return computed_metrics, avg_loss, cm

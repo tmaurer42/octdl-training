@@ -14,6 +14,8 @@ class DatasetConfig():
     classes: list[OCTDLClass]
     augmentation: bool
     batch_size: int
+    n_workers: int = 0
+    pin_memory: bool = False
 
 
 def run_fl_simulation(
@@ -29,7 +31,9 @@ def run_fl_simulation(
         augmentation=dataset_config.augmentation,
         batch_size=dataset_config.batch_size,
         n_partitions=n_clients,
-        validation_batch_size=client_config.validation_batch_size
+        validation_batch_size=client_config.validation_batch_size,
+        n_workers=dataset_config.n_workers,
+        pin_memory=dataset_config.pin_memory
     )
 
     if strategy_name == 'FedAvg':
@@ -55,7 +59,7 @@ def run_fl_simulation(
         config=fl.server.ServerConfig(
             num_rounds=n_rounds
         ),
-        client_resources={"num_cpus": 1, "num_gpus": num_gpus},
+        client_resources={"num_cpus": 4, "num_gpus": num_gpus},
         strategy=strategy
     )
 

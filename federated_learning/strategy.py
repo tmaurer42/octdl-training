@@ -2,11 +2,12 @@ import copy
 from logging import INFO
 import os
 from typing import Callable, Literal, Optional, Union
+import time
 
-from flwr.common import Scalar, Metrics, log
+from flwr.common import FitIns, Scalar, Metrics, log
 from flwr.server.server import FitRes, Parameters
 from flwr.server.strategy import Strategy
-from flwr.server.client_manager import ClientProxy
+from flwr.server.client_manager import ClientManager, ClientProxy
 import torch
 
 from federated_learning.utils import apply_parameters
@@ -37,6 +38,7 @@ def wrap_strategy(base: type[Strategy]):
             self.on_aggregate_evaluated = on_aggregate_evaluated
             self.lowest_loss = float('inf')
             self.highest_metric = float('-inf')
+            self.round_start_time = 0
 
             self.last_aggregated_parameters: Parameters
 
@@ -48,6 +50,10 @@ def wrap_strategy(base: type[Strategy]):
             if self.checkpoint_path is not None and self.model is not None:
                 path = os.path.join(self.checkpoint_path, f"best_model.pth")
                 torch.save(self.model.state_dict(), path)
+
+        def configure_fit(self, server_round, parameters, client_manager):
+            self.round_start_time = time.perf_counter()
+            return super().configure_fit(server_round, parameters, client_manager)
 
         def aggregate_evaluate(
             self,
@@ -83,6 +89,9 @@ def wrap_strategy(base: type[Strategy]):
 
             if self.on_aggregate_evaluated is not None:
                 self.on_aggregate_evaluated(server_round, loss, metrics)
+            
+            elapsed_time = time.perf_counter() - self.round_start_time
+            log(INFO, f"round took {elapsed_time} seconds")
 
             return loss, metrics
 
@@ -95,7 +104,7 @@ def wrap_strategy(base: type[Strategy]):
             aggregated_parameters, aggregated_metrics = super(
             ).aggregate_fit(server_round, results, failures)
 
-            self.last_aggregated_parameters = copy.deepcopy(
+            self.last_aggregated_parameters = copy.copy(
                 aggregated_parameters)
 
             return aggregated_parameters, aggregated_metrics

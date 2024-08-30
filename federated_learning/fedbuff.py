@@ -26,7 +26,7 @@ def random_halfnormal_variate(max):
         return 0
 
     value = float('inf')
-    while value > max:
+    while value > max + 1e-7:
         value = int(math.floor(abs(norm.rvs(scale=max/4))))
 
     return value
@@ -120,7 +120,7 @@ class FedBuff(FedAvg):
             num_clients=sample_size
         )
 
-        self.all_parameters[server_round] = copy.deepcopy(parameters)
+        self.all_parameters[server_round] = copy.copy(parameters)
 
         client_instructions = []
         for client in clients:
@@ -134,6 +134,12 @@ class FedBuff(FedAvg):
             fit_ins = FitIns(params, {})
             fit_ins.config['staleness'] = staleness
             client_instructions.append((client, fit_ins))
+
+        min_param_version = min(list(self.clients_param_version.values()))
+        param_versions = list(self.all_parameters.keys())
+        for param_version in param_versions:
+            if param_version < min_param_version:
+                self.all_parameters[param_version] = None
 
         return client_instructions
 

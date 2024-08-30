@@ -139,7 +139,8 @@ def run_study(
                     lr=learning_rate,
                     model_type=model_type,
                     transfer_learning=transfer_learning,
-                    metrics=metrics
+                    metrics=metrics,
+                    optimized=True
                 ),
                 strategy=strategy,
                 strategy_name=fl_strategy

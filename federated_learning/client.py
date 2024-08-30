@@ -40,7 +40,7 @@ class ClientConfig:
     lr: float
     loss_fn_type: LossFnType
     metrics: list[type[CategoricalMetric]]
-    validation_batch_size: int = 32,
+    validation_batch_size: int = 32
     optimized: bool = False
 
 

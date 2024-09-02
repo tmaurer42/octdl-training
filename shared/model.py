@@ -5,7 +5,7 @@ from torchvision import models
 from shared.data import OCTDLClass
 
 
-ModelType = Literal["ResNet18", "MobileNetV2", "EfficientNetV2"]
+ModelType = Literal["ResNet18", "MobileNetV2", "EfficientNetV2", "ResNet50"]
 
 
 def get_model_by_type(
@@ -17,6 +17,11 @@ def get_model_by_type(
     if model_type == "ResNet18":
         return get_resnet(
             transfer_learning=transfer_learning,
+            num_classes=len(classes),
+            dropout=dropout
+        )
+    if model_type == "ResNet50":
+        return get_resnet50(
             num_classes=len(classes),
             dropout=dropout
         )
@@ -33,6 +38,18 @@ def get_model_by_type(
             num_classes=len(classes),
             dropout=dropout
         )
+
+
+def get_resnet50(num_classes, dropout = 0.0):
+    resnet18_model = models.resnet50()
+    last_layer_input_size = resnet18_model.fc.in_features
+
+    resnet18_model.fc = nn.Sequential(
+        nn.Dropout(dropout),
+        nn.Linear(last_layer_input_size, num_classes)
+    )
+
+    return resnet18_model
 
 
 def get_resnet(

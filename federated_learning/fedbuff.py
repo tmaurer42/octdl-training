@@ -45,10 +45,6 @@ class FedBuff(FedAvg):
         else:
             max_staleness = server_round - last_used_param_version - 1
 
-        # staleness is bound by ceil[t(max,1) / K], where t(max,1) is the maximum possible staleness if K was 1
-        #staleness_bound = math.ceil(server_round - 1 / self.buffer_size)
-        #max_staleness = min(max_staleness, staleness_bound)
-
         if max_staleness == 0:
             staleness = 0
         else:

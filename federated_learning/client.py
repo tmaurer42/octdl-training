@@ -161,20 +161,21 @@ class FlClient(fl.client.NumPyClient):
         loss_fn = self.get_loss_fn()
 
         if self.optimized:
-            eval_optimized(
+            metrics, loss, _ = eval_optimized(
                 model=self.model,
                 data_loader=self.val_loader,
                 device=self.device,
                 loss_fn=loss_fn,
                 metrics=self.metrics,
             )
-        metrics, loss, _ = evaluate(
-            model=self.model,
-            data_loader=self.val_loader,
-            loss_fn=loss_fn,
-            metrics=self.metrics,
-            device=self.device
-        )
+        else:
+            metrics, loss, _ = evaluate(
+                model=self.model,
+                data_loader=self.val_loader,
+                loss_fn=loss_fn,
+                metrics=self.metrics,
+                device=self.device
+            )
 
         metrics_dict = {}
         for i, metric_val in enumerate(metrics):

@@ -32,3 +32,6 @@ def eval_resnet50_trials():
             loss_fn_type='WeightedCrossEntropy',
             fl_eval_parameters=fl_eval_params
         )
+
+if __name__ == "__main__":
+    eval_resnet50_trials()

@@ -1,6 +1,7 @@
 import os
 from enum import Enum
 import functools
+from collections import Counter
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -83,6 +84,32 @@ def _get_image_label_pairs(
         lambda pairs, pid: pairs + id_to_images[pid],
         ids, []
     )
+
+def _duplicate_single_occurrence(data: list[tuple[str, str]]):
+    """
+    Duplicates each tuple whose label occurs only once in the data.
+    
+    Parameters:
+    data (list of tuples): List where each tuple is of the form (image_path, label).
+    
+    Returns:
+    list: Modified list with duplicated tuples for labels that occur only once.
+    """
+    # Extract labels from the data
+    labels = [label for _, label in data]
+    
+    # Count the occurrence of each label
+    label_counts = Counter(labels)
+    
+    # Create a new list where we duplicate tuples whose label occurs only once
+    result = []
+    for item in data:
+        _, label = item
+        result.append(item)  # Add the original tuple
+        if label_counts[label] == 1:
+            result.append(item)  # Duplicate if the label occurs only once
+            
+    return result
 
 
 def prepare_dataset(
@@ -239,6 +266,7 @@ def load_octdl_data(
             partition_ids = train_val_ids[i*partition_size:(i+1)*partition_size]
             
         partition_samples = _get_image_label_pairs(partition_ids, patient_to_images)
+        partition_samples = _duplicate_single_occurrence(partition_samples)
         partition_x = [sample[0] for sample in partition_samples]
         partition_y = [sample[1] for sample in partition_samples]
 

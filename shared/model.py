@@ -16,12 +16,15 @@ def get_model_by_type(
 ):
     if model_type == "ResNet18":
         return get_resnet(
+            kind='18',
             transfer_learning=transfer_learning,
             num_classes=len(classes),
             dropout=dropout
         )
     if model_type == "ResNet50":
-        return get_resnet50(
+        return get_resnet(
+            kind='50',
+            transfer_learning=transfer_learning,
             num_classes=len(classes),
             dropout=dropout
         )
@@ -40,19 +43,8 @@ def get_model_by_type(
         )
 
 
-def get_resnet50(num_classes, dropout = 0.0):
-    resnet18_model = models.resnet50()
-    last_layer_input_size = resnet18_model.fc.in_features
-
-    resnet18_model.fc = nn.Sequential(
-        nn.Dropout(dropout),
-        nn.Linear(last_layer_input_size, num_classes)
-    )
-
-    return resnet18_model
-
-
 def get_resnet(
+    kind: Literal['18', '50'],
     num_classes: int,
     transfer_learning: bool = False,
     dropout=0.2
@@ -79,14 +71,18 @@ def get_resnet(
     Returns:
         The configured ResNet18 model.
     """
-    weights = models.ResNet18_Weights.IMAGENET1K_V1 if transfer_learning else None
-    resnet18_model = models.resnet18(weights=weights)
+    if kind == '18':
+        weights = models.ResNet18_Weights.IMAGENET1K_V1 if transfer_learning else None
+        resnet_model = models.resnet18(weights=weights)
+    elif kind == '50':
+        weights = models.ResNet50_Weights.IMAGENET1K_V1 if transfer_learning else None
+        resnet_model = models.resnet50(weights=weights)
 
-    last_layer_input_size = resnet18_model.fc.in_features
+    last_layer_input_size = resnet_model.fc.in_features
     layers = []
 
     if transfer_learning:
-        for params in resnet18_model.parameters():
+        for params in resnet_model.parameters():
             params.requires_grad = False
 
         dense_layer_size = last_layer_input_size // 2
@@ -106,8 +102,8 @@ def get_resnet(
 
     layers.append(nn.Linear(last_layer_input_size, num_classes))
 
-    resnet18_model.fc = nn.Sequential(*layers)
-    return resnet18_model
+    resnet_model.fc = nn.Sequential(*layers)
+    return resnet_model
 
 
 def get_mobilenet(

@@ -141,7 +141,7 @@ def run_study(
                     transfer_learning=transfer_learning,
                     metrics=metrics,
                     optimized=True,
-                    validation_batch_size=128
+                    validation_batch_size=32
                 ),
                 strategy=strategy,
                 strategy_name=fl_strategy

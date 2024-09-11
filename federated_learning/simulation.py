@@ -59,7 +59,7 @@ def run_fl_simulation(
         config=fl.server.ServerConfig(
             num_rounds=n_rounds
         ),
-        client_resources={"num_cpus": 4, "num_gpus": num_gpus},
+        client_resources={"num_cpus": 5, "num_gpus": num_gpus},
         strategy=strategy
     )
 

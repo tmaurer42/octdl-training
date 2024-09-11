@@ -7,10 +7,10 @@ def main():
     classes = [OCTDLClass.AMD, OCTDLClass.DME, OCTDLClass.ERM,
                OCTDLClass.NO, OCTDLClass.RAO, OCTDLClass.RVO, OCTDLClass.VID]
 
-    run_centralized(model_type='ResNet50', transfer_learning=False, loss_fn_type='WeightedCrossEntropy',
-                    class_list=classes, optimization_mode='maximize_f1_macro', n_jobs=2)
-    run_centralized(model_type='MobileNetV2', transfer_learning=True, loss_fn_type='WeightedCrossEntropy',
-                    class_list=classes, optimization_mode='maximize_f1_macro', n_jobs=2)
+    #run_centralized(model_type='ResNet50', transfer_learning=False, loss_fn_type='WeightedCrossEntropy',
+    #                class_list=classes, optimization_mode='maximize_f1_macro', n_jobs=1)
+    #run_centralized(model_type='MobileNetV2', transfer_learning=True, loss_fn_type='WeightedCrossEntropy',
+    #                class_list=classes, optimization_mode='maximize_f1_macro', n_jobs=1)
 
     n_clients = 20
     n_total_updates = 260

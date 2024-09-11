@@ -85,28 +85,29 @@ class FlClient(fl.client.NumPyClient):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
 
     def compute_class_weights(self):
-        # Step 1: Count the number of samples per class
-        class_counts = {}
+        """
+        Computes class weights for the loss function, even if some classes are missing from the dataset.
+
+        Parameters:
+        - num_classes (int): The total number of classes.
+
+        Returns:
+        - torch.Tensor: Tensor containing the class weights.
+        """
+        num_classes = len(self.classes)
+        class_counts = np.zeros(num_classes)
+
         for _, labels in self.train_loader:
             labels = labels.cpu().numpy()
             for label in labels:
-                if label in class_counts:
-                    class_counts[label] += 1
-                else:
-                    class_counts[label] = 1
+                class_counts[label] += 1
 
-        # Convert class_counts to a list where index represents class label
-        num_classes = len(class_counts)
-        counts = np.zeros(num_classes)
-        for label, count in class_counts.items():
-            counts[label] = count
+        total_samples = np.sum(class_counts)
 
-        # Step 2: Compute the class weights
-        total_samples = np.sum(counts)
-        class_weights = total_samples / (num_classes * counts)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            class_weights = total_samples / (num_classes * class_counts)
+            class_weights[np.isinf(class_weights)] = 0
 
-        # Step 3: Normalize the weights if needed (optional)
-        # For example, normalize such that the weights sum to 1
         class_weights = class_weights / np.sum(class_weights)
 
         return torch.tensor(class_weights, dtype=torch.float)

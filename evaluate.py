@@ -119,8 +119,10 @@ def evaluate(
 
     bal_acc = balanced_accuracy(all_preds, all_labels)
     f1score_macro = metrics.f1_score(all_labels, all_preds, average='macro')
+    
     f1score_amd = metrics.f1_score(
-        all_labels, all_preds, average='binary', pos_label=0)
+        all_labels, all_preds, average='binary', pos_label=0
+    ) if len(classes) == 2 else 0.0
 
     classes_str = ','.join([cls.name for cls in classes])
 

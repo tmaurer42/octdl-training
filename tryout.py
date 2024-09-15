@@ -15,6 +15,8 @@ from shared.training import EarlyStopping, evaluate, set_device, train, LossFnTy
 
 def try_centralized():
     classes = [OCTDLClass.AMD, OCTDLClass.NO]
+    classes = [OCTDLClass.AMD, OCTDLClass.DME, OCTDLClass.ERM,
+               OCTDLClass.NO, OCTDLClass.RAO, OCTDLClass.RVO, OCTDLClass.VID]
     
     balancing_weight = get_balancing_weights(
         classes
@@ -23,11 +25,11 @@ def try_centralized():
     loss_fn: LossFnType = nn.CrossEntropyLoss()
 
     image_size = 224
-    epochs = 2
+    epochs = 10
 
-    batch_size = 8
-    learning_rate = 0.0002557595730833588
-    apply_augmentation = False
+    batch_size = 32
+    learning_rate = 0.0005
+    apply_augmentation = True
     dropout = 0.2
 
     train_loader, val_loader, _ = prepare_dataset(
@@ -43,7 +45,7 @@ def try_centralized():
     print(len(_.dataset))
 
     model = get_model_by_type(
-        "MobileNetV2", True, classes, dropout)
+        "ResNet18", False, classes, dropout)
 
     adam = optim.Adam(model.parameters(), learning_rate)
 
@@ -80,28 +82,31 @@ def try_federated():
         print(f"I AM THE CALLBACK FROM ROUND {round}, the loss is {loss}")
         print(m)
 
+    all_classes = [OCTDLClass.AMD, OCTDLClass.NO]
     model = get_model_by_type(
-            'MobileNetV2', True, [OCTDLClass.AMD, OCTDLClass.NO], 0.2)
+            'MobileNetV2', True, all_classes, 0.2)
 
     device = set_device()
 
-    n_clients = 20
+    n_clients = 3
 
+    
     """
     fedavg = get_fedavg(
         n_clients,
         10,
         metrics,
         model=model, 
-        checkpoint_path='tmp_results',
+        checkpoint_path=None,
+        optimization_mode='maximize_f1_macro',
         on_aggregate_evaluated=callback 
     )
-    """
 
+    """
     fedbuff = get_fedbuff(
-        buffer_size=10, 
+        buffer_size=3, 
         n_clients=n_clients, 
-        server_lr=0.05, 
+        server_lr=0.06, 
         metrics=metrics, 
         optimization_mode='maximize_f1_macro',
         model=model, 
@@ -114,27 +119,27 @@ def try_federated():
         n_rounds=10,
         dataset_config=DatasetConfig(
             augmentation=False,
-            batch_size=32,
-            classes=[OCTDLClass.AMD, OCTDLClass.NO],
+            batch_size=16,
+            classes=all_classes,
             pin_memory=True
         ),
         client_config=ClientConfig(
             device=device,
             dropout=0.2,
             epochs=5,
-            loss_fn_type='WeightedCrossEntropy',
-            lr=0.02,
+            loss_fn_type='CrossEntropy',
+            lr=0.002,
             model_type='MobileNetV2',
             transfer_learning=True,
             metrics=metrics,
-            validation_batch_size=128,
+            validation_batch_size=32,
             optimized=True,
         ),
         strategy=fedbuff,
         strategy_name='FedBuff'
     )
 
-    _, val_loader, test_loader = prepare_dataset([OCTDLClass.AMD, OCTDLClass.NO],False,1,32)
+    _, val_loader, test_loader = prepare_dataset(all_classes,False,1,32)
 
     metrics, loss, cm = evaluate(model, test_loader, nn.CrossEntropyLoss(), [BalancedAccuracy(), F1ScoreMacro()], device)
     
@@ -143,5 +148,5 @@ def try_federated():
     
 
 if __name__ == "__main__":
-    #try_centralized()
-    try_federated()
+    try_centralized()
+   # try_federated()

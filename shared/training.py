@@ -51,8 +51,7 @@ def set_device():
                   "built with MPS enabled.")
     else:
         dev = "cpu"
-
-    print(f"Using device {dev}")
+        
     device = torch.device(dev)
 
     return device

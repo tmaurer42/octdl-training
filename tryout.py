@@ -25,14 +25,14 @@ def try_centralized():
     loss_fn: LossFnType = nn.CrossEntropyLoss()
 
     image_size = 224
-    epochs = 10
+    epochs = 500
 
-    batch_size = 32
+    batch_size = 16
     learning_rate = 0.0005
     apply_augmentation = True
-    dropout = 0.2
+    dropout = 0.0
 
-    train_loader, val_loader, _ = prepare_dataset(
+    train_loader, val_loader, test_loader = prepare_dataset(
         classes=classes,
         augmentation=apply_augmentation,
         batch_size=batch_size,
@@ -42,10 +42,10 @@ def try_centralized():
 
     print(len(train_loader.dataset))
     print(len(val_loader.dataset))
-    print(len(_.dataset))
+    print(len(test_loader.dataset))
 
     model = get_model_by_type(
-        "ResNet18", False, classes, dropout)
+        "ResNet50", False, classes, dropout)
 
     adam = optim.Adam(model.parameters(), learning_rate)
 
@@ -54,16 +54,16 @@ def try_centralized():
     train_gen = train(
         model,
         train_loader=train_loader,
-        #val_loader=val_loader,
+        val_loader=val_loader,
         epochs=epochs,
         optimizer=adam,
         loss_fn=loss_fn,
         metrics=metrics,
-        device=device
-        #early_stopping=EarlyStopping(
-        #    patience=5,
-        #    from_epoch=20
-        #)
+        device=device,
+        early_stopping=EarlyStopping(
+            patience=10,
+            from_epoch=20
+        )
     )
 
     for epoch_result in train_gen:
@@ -71,7 +71,7 @@ def try_centralized():
             print(epoch_result.val_loss)
             print(epoch_result.val_metrics)
 
-    metrics, loss, cm = evaluate(model, val_loader, loss_fn, metrics, device=set_device())
+    metrics, loss, cm = evaluate(model, test_loader, loss_fn, metrics, device=device)
 
     print(metrics)
 

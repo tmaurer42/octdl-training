@@ -29,7 +29,7 @@ def load_weights(model: nn.Module, study_name, trial_number):
         print(f"Unable to load weights from path: {weights_path}")
         return
     model.load_state_dict(torch.load(
-        weights_path, map_location=torch.device('cpu')))
+        weights_path, map_location=torch.device('cpu'), weights_only=True))
 
 
 def save_weights(study_name: str, weights: dict[str, any], trial_number):

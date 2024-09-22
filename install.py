@@ -19,7 +19,7 @@ def install_pytorch():
     elif os_name == 'Darwin':  # MacOS
         print("Installing pytorch and torchvision")
         subprocess.check_call(
-            [sys.executable, '-m', 'pip', 'install', 'torch', 'torchvision'])
+            [sys.executable, '-m', 'pip', 'install', 'torch==1.13.1', 'torchvision==0.14.1'])
 
     else:
         print(f"Centralized installation not supported on {os_name}")

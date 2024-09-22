@@ -148,6 +148,7 @@ def get_partitioned_data(
         classes, ds_dir, labels_file, n_partitions)
 
     base_transform, train_transform = get_transforms(img_target_size)
+    train_transform, base_transform = data_transforms_octdl()
 
     train_datasets = []
     val_datasets = []
@@ -333,3 +334,82 @@ def get_transforms(img_target_size: int):
     ])
 
     return base_transform, augment_transform
+
+
+def random_apply(op, p):
+    return transforms.RandomApply([op], p=p)
+
+
+def simple_transform(input_size):
+    return transforms.Compose([
+        transforms.Resize((input_size, input_size)),
+        transforms.ToTensor()
+    ])
+
+    
+def data_transforms_octdl():
+    operations = {
+        'random_crop': random_apply(
+            transforms.RandomResizedCrop(
+                size=(224, 224),
+                scale=[0.87, 1.15],
+                ratio=[0.65, 1.3]
+            ),
+            p=0.5
+        ),
+        'horizontal_flip': transforms.RandomHorizontalFlip(
+            p=0.5
+        ),
+        'vertical_flip': transforms.RandomVerticalFlip(
+            p=0.5
+        ),
+        'color_distortion': random_apply(
+            transforms.ColorJitter(
+                brightness=0.2,
+                contrast=0.2,
+                saturation=0.2,
+                hue=0.2
+            ),
+            p=0.5
+        ),
+        'rotation': random_apply(
+            transforms.RandomRotation(
+                degrees=[-180, 180],
+            ),
+            p=0.5
+        ),
+        'translation': random_apply(
+            transforms.RandomAffine(
+                degrees=0,
+                translate=[0.2, 0.2],
+            ),
+            p=0.5
+        ),
+        'gaussian_blur': random_apply(
+            transforms.GaussianBlur(
+                kernel_size=7,
+                sigma=0.6
+            ),
+            p=0.2
+        )
+    }
+
+    augmentations = []
+    for op in list(operations.keys()):
+        if op not in operations:
+            raise NotImplementedError('Not implemented data augmentation operations: {}'.format(op))
+        augmentations.append(operations[op])
+
+    normalization = [
+        transforms.Resize((224, 224)),
+        transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+    ]
+
+    train_preprocess = transforms.Compose([
+        *augmentations,
+        *normalization
+    ])
+
+    test_preprocess = transforms.Compose(normalization)
+
+    return train_preprocess, test_preprocess

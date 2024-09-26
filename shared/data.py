@@ -148,7 +148,6 @@ def get_partitioned_data(
         classes, ds_dir, labels_file, n_partitions)
 
     base_transform, train_transform = get_transforms(img_target_size)
-    train_transform, base_transform = data_transforms_octdl()
 
     train_datasets = []
     val_datasets = []
@@ -413,3 +412,55 @@ def data_transforms_octdl():
     test_preprocess = transforms.Compose(normalization)
 
     return train_preprocess, test_preprocess
+
+def get_octdl_datasets_stratified(
+    classes: list[OCTDLClass],
+    batch_size: int,
+    ds_dir: str = './OCTDL',
+    labels_file: str = 'OCTDL_labels.csv',
+):
+    classes_as_str = [cls.name for cls in classes]
+    labels_df = pd.read_csv(os.path.join(ds_dir, labels_file))
+    labels_df = labels_df.query('disease in @classes_as_str')
+
+    images = []
+    labels = []
+    for label in classes_as_str:
+        label_dir = os.path.join(ds_dir, label)
+        if os.path.isdir(label_dir):
+            for image_file in sorted(os.listdir(label_dir)):
+                image_path = os.path.join(label_dir, image_file)
+                images.append(image_path)
+                labels.append(label)
+                
+    train_data, val_test_data, train_labels , val_test_labels = model_selection.train_test_split(
+        images, labels, test_size=0.30, random_state=42, stratify=labels
+    )
+
+    val_data, test_data, val_labels, test_labels = model_selection.train_test_split(
+        val_test_data, val_test_labels, test_size=0.5, random_state=42, stratify=val_test_labels
+    )
+
+    train_preprocess, test_preprocess = data_transforms_octdl()
+
+    train_ds = OCTDLDataset(
+        list(zip(train_data, train_labels)), 
+        classes, 
+        train_preprocess
+    )
+    val_ds = OCTDLDataset(
+        list(zip(val_data, val_labels)), 
+        classes,
+        test_preprocess
+    )
+    test_ds = OCTDLDataset(
+        list(zip(test_data, test_labels)), 
+        classes, 
+        test_preprocess
+    )
+
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_ds, batch_size=32, shuffle=False)
+    test_loader = DataLoader(test_ds, batch_size=32, shuffle=False)
+
+    return train_loader, val_loader, test_loader

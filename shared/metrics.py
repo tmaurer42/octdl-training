@@ -21,18 +21,6 @@ def f1_score_macro(predictions, actual_values):
     )
 
 
-def balanced_accuracy_from_confustion_matrix(cm):
-    recalls = []
-    for i in range(len(cm)):
-        tp = cm[i][i]
-        fn = sum(cm[i]) - tp
-        recall = tp / (tp + fn)
-        recalls.append(recall)
-
-    balanced_acc = sum(recalls) / len(recalls)
-    return balanced_acc
-
-
 class CategoricalMetric(abc.ABC):
     """
     Base class similar to torchmetrics to wrap sklearn metrics.
@@ -103,8 +91,3 @@ class F1ScoreMacro(CategoricalMetric):
             predictions=self.all_preds,
             actual_values=self.all_targets
         )
-
-
-if __name__ == "__main__":
-    cm = [[171, 9], [2, 47]]
-    print(balanced_accuracy_from_confustion_matrix(cm))

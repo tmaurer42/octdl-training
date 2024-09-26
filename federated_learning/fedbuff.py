@@ -40,6 +40,10 @@ class FedBuff(FedAvg):
         self.clients_param_version: dict[str, int] = {}
 
     def get_random_parameters(self, server_round: int, last_used_param_version: Optional[int]):
+        """
+        For a client, get random paramters from all possible parameter versions
+        based on the current server round and the last used parameters by the clients.
+        """
         if last_used_param_version is None:
             max_staleness = len(self.all_parameters) - 1
         else:
@@ -50,7 +54,6 @@ class FedBuff(FedAvg):
         else:
             # Use halfnormal staleness distribution, as observed in FedBuff paper
             staleness = random_halfnormal_variate(max_staleness)
-            # staleness = np.random.randint(0, max_staleness)
         param_version = server_round - staleness
         params = self.all_parameters[param_version]
 
@@ -65,12 +68,9 @@ class FedBuff(FedAvg):
         Updates are summed and divided by the buffer size.
         """
         results_parameters = []
-        #examples = 0
 
         for res in results:
             fit_res = res[1]
-            #num_examples = fit_res.num_examples
-            #examples += num_examples
             params = parameters_to_ndarrays(fit_res.parameters)
             staleness_scale = 1/(1+math.sqrt(fit_res.metrics['staleness']))
             params = [layer * staleness_scale for layer in params]
@@ -153,7 +153,6 @@ class FedBuff(FedAvg):
             return None, {}
 
         buffer = self.aggregate_buffer(results)
-        # Pass the current parameters that were set by the configure_fit method
         new_parameters = self.update_global_params(
             self.all_parameters[server_round], buffer)
 

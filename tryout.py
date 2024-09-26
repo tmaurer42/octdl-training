@@ -1,21 +1,23 @@
+import copy
 import json
 import sys
 from torch import nn, optim
 import torch
 from torch.utils.data import DataLoader
 
+from centralized.optimization import load_weights
 from federated_learning.client import ClientConfig
 from federated_learning.fedavg import get_fedavg
 from federated_learning.fedbuff import get_fedbuff
 from federated_learning.simulation import DatasetConfig, run_fl_simulation
-from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms, prepare_dataset
+from shared.data import OCTDLClass, OCTDLDataset, get_balancing_weights, load_octdl_data, get_transforms, prepare_dataset, get_octdl_datasets_stratified
 from shared.metrics import BalancedAccuracy, F1ScoreMacro
 from shared.model import get_efficientnet, get_mobilenet, get_model_by_type
 from shared.training import EarlyStopping, evaluate, set_device, train, LossFnType
 
 def try_centralized():
     classes = [OCTDLClass.AMD, OCTDLClass.NO]
-    classes = [OCTDLClass.AMD, OCTDLClass.DME, OCTDLClass.ERM,
+    all_classes = [OCTDLClass.AMD, OCTDLClass.DME, OCTDLClass.ERM,
                OCTDLClass.NO, OCTDLClass.RAO, OCTDLClass.RVO, OCTDLClass.VID]
     
     balancing_weight = get_balancing_weights(
@@ -25,19 +27,16 @@ def try_centralized():
     loss_fn: LossFnType = nn.CrossEntropyLoss()
 
     image_size = 224
-    epochs = 500
+    epochs = 100
 
-    batch_size = 16
+    batch_size = 64
     learning_rate = 0.0005
     apply_augmentation = True
     dropout = 0.0
 
-    train_loader, val_loader, test_loader = prepare_dataset(
-        classes=classes,
-        augmentation=apply_augmentation,
+    train_loader, val_loader, test_loader = get_octdl_datasets_stratified(
+        classes=all_classes,
         batch_size=batch_size,
-        img_target_size=image_size,
-        validation_batch_size=32
     )
 
     print(len(train_loader.dataset))
@@ -45,7 +44,7 @@ def try_centralized():
     print(len(test_loader.dataset))
 
     model = get_model_by_type(
-        "ResNet50", False, classes, dropout)
+        "ResNet50", True, all_classes, dropout)
 
     adam = optim.Adam(model.parameters(), learning_rate)
 
@@ -60,20 +59,25 @@ def try_centralized():
         loss_fn=loss_fn,
         metrics=metrics,
         device=device,
-        early_stopping=EarlyStopping(
-            patience=10,
-            from_epoch=20
-        )
+        early_stopping=None
     )
 
+    highest_val_f1 = float('-inf')
+    final_weights = None
     for epoch_result in train_gen:
         if epoch_result is not None:
-            print(epoch_result.val_loss)
-            print(epoch_result.val_metrics)
+            val_f1 = epoch_result.val_metrics[F1ScoreMacro.name()]
+            if val_f1 > highest_val_f1:
+                print("New best F1 score:", val_f1)
+                highest_val_f1 = val_f1
+                final_weights = copy.deepcopy(epoch_result.model_weights)
+
+    model.load_state_dict(final_weights)
 
     metrics, loss, cm = evaluate(model, test_loader, loss_fn, metrics, device=device)
 
     print(metrics)
+    print(cm.tolist())
 
 
 def try_federated():

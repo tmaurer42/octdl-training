@@ -297,6 +297,10 @@ def train_optimized(
     device: torch.device,
     adapt_lr: Optional[Callable[[float], float]] = None,
 ):
+    """
+    An alternative training loop used in federated learning.
+    It only trains the model without validation step, keeping data on the device at any time.
+    """
     model.to(device)
     loss_fn.to(device)
 
@@ -326,6 +330,10 @@ def eval_optimized(
     metrics: list[CategoricalMetric],
     device: torch.device,
 ):
+    """
+    An alternative, optimized training loop used in federated learning.
+    """
+
     model.to(device)
     loss_fn.to(device)
     

@@ -189,29 +189,3 @@ def main(
         n_trials=100,
         n_jobs=n_jobs
     )
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run model training with specified model type and class list.")
-    parser.add_argument('--transfer_learning', action='store_true',
-                        help='Whether to use transfer learning or not.')
-    model_type_mode_choices = list(get_args(ModelType))
-    parser.add_argument('--model_type', type=str, required=True, choices=model_type_mode_choices,
-                        help=f"Type of model to use")
-    parser.add_argument('--class_list', type=str, required=True,
-                        help="Comma-separated list of classes.")
-    optimization_mode_choices = list(get_args(OptimizationMode))
-    parser.add_argument('--optimization_mode', required=True,
-                        choices=optimization_mode_choices, help="Which optimization mode to use")
-    parser.add_argument('--n_jobs', type=int, required=False, default=1,
-                        help="The number of workers conducting the study in parallel")
-
-    args = parser.parse_args()
-
-    transfer_learning = args.transfer_learning
-    class_list_str = args.class_list.split(',')
-    class_list = [getattr(OCTDLClass, cls) for cls in class_list_str]
-
-    main(args.model_type, class_list, transfer_learning,
-         args.optimization_mode, args.n_jobs)

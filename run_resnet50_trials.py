@@ -5,8 +5,8 @@ from shared.data import OCTDLClass
 def main():
     classes = [OCTDLClass.AMD, OCTDLClass.NO]
 
-    #run_centralized(model_type='ResNet50', transfer_learning=False, loss_fn_type='WeightedCrossEntropy',
-        #class_list=classes, optimization_mode='maximize_f1_macro', n_jobs=2)
+    run_centralized(model_type='ResNet50', transfer_learning=False, loss_fn_type='WeightedCrossEntropy',
+        class_list=classes, optimization_mode='maximize_f1_macro', n_jobs=2)
 
     n_clients = 20
     n_total_updates = 260

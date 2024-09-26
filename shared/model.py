@@ -13,7 +13,7 @@ def get_model_by_type(
     transfer_learning: bool,
     classes: list[OCTDLClass],
     dropout: float
-):
+) -> nn.Module:
     if model_type == "ResNet18":
         return get_resnet(
             kind='18',
@@ -53,6 +53,8 @@ def get_resnet(
     Load and initialize a pytorch ResNet18 model.
 
     Parameters:
+        kind (Literal['18', '50']):
+            The kind of ResNet.
         num_classes (int):
             Number of classes the model should output in the last layer.
         transfer_learning (bool):

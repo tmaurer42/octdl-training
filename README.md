@@ -2,10 +2,7 @@
 
 Use Python version: 3.9
 
-On Linux, install pytorch and torchvision like this for CUDA 11.6
+Install the requirements via the install.py script for the pytorch version used to generate the results.
 
-```
-conda install pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.6 -c pytorch -c nvidia
-```
-
-To run the experiments, run the experiments.py file.
+The experiments are contained in the run_\*.py files.
+The respective script to evaluate them are the eval_\*.py files.

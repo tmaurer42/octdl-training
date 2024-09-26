@@ -18,18 +18,6 @@ from shared.model import ModelType, get_model_by_type
 from shared.metrics import CategoricalMetric
 
 
-def get_largest_parameter_value(model: torch.nn.Module) -> float:
-    max_val = float('-inf')  # Initialize to negative infinity
-
-    # Iterate over all parameters in the model
-    for param in model.parameters():
-        if param is not None:
-            param_max = torch.max(torch.abs(param)).item()
-            max_val = max(max_val, param_max)
-
-    return max_val
-
-
 @dataclass
 class ClientConfig:
     device: torch.device
@@ -74,6 +62,9 @@ class FlClient(fl.client.NumPyClient):
         )
 
     def set_parameters(self, parameters):
+        """
+        Set the received parameters in the model.
+        """
         model_state_dict_keys = list(self.model.state_dict().keys())
 
         params_dict = zip(model_state_dict_keys, parameters)
@@ -82,6 +73,9 @@ class FlClient(fl.client.NumPyClient):
         self.model.load_state_dict(state_dict, strict=True)
 
     def get_parameters(self, config):
+        """
+        Convert the model's parameters to NDArrays to send them to the server.
+        """
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
 
     def compute_class_weights(self):
@@ -113,6 +107,10 @@ class FlClient(fl.client.NumPyClient):
         return torch.tensor(class_weights, dtype=torch.float)
 
     def get_loss_fn(self):
+        """
+        Gets the loss function based on the configuration.
+        For weighted cross-entropy loss, weights are computed based on the training set.
+        """
         if self.loss_fn_type == 'CrossEntropy':
             loss_fn = nn.CrossEntropyLoss()
         elif self.loss_fn_type == 'WeightedCrossEntropy':
@@ -123,6 +121,9 @@ class FlClient(fl.client.NumPyClient):
         return loss_fn
 
     def fit(self, parameters, config):
+        """
+        Training loop for the client
+        """
         self.set_parameters(parameters)
 
         loss_fn = self.get_loss_fn()
@@ -183,14 +184,6 @@ class FlClient(fl.client.NumPyClient):
             name = self.metrics[i].name()
             metrics_dict[name] = metric_val
 
-        if math.isnan(loss):
-            largest_param = get_largest_parameter_value(self.model)
-            log(
-                ERROR,
-                f"client loss is nan, valloader lenght: {len(self.val_loader)}, val data size: {len(self.val_loader.dataset)}"
-                f"Max param size is {largest_param}"
-            )
-
         return float(loss), len(self.val_loader.dataset), metrics_dict
 
 
@@ -208,6 +201,9 @@ class FedBuffClient(FlClient):
             name for name, param in named_model_params if param.requires_grad]
 
     def set_parameters(self, parameters: NDArrays):
+        """
+        Set the received trainable parameters in the model.
+        """
         new_state_dict = OrderedDict()
         assert len(parameters) == len(self.trainable_param_names)
         trainable_param_index = 0
@@ -222,6 +218,9 @@ class FedBuffClient(FlClient):
         self.model.load_state_dict(new_state_dict, strict=True)
 
     def get_parameters(self, config):
+        """
+        Convert the model's trainable parameters to NDArrays to send them to the server.
+        """
         parameters = []
         for name, params in self.model.state_dict().items():
             if name in self.trainable_param_names:

@@ -11,8 +11,8 @@ def run_fedavg_experiments():
             
     run_experiment(model_type='MobileNetV2', transfer_learning=True, loss_fn_type='WeightedCrossEntropy',
                 class_list=classes, optimization_mode='minimize_loss', n_jobs=n_jobs,
-                fl_strategy='FedBuff', n_clients=n_clients, n_rounds=n_rounds,
-                buffer_size=buffer_size)
+                fl_strategy='FedAvg', n_clients=n_clients, n_rounds=n_rounds,
+                n_clients_per_round=buffer_size)
 
 
 if __name__ == "__main__":

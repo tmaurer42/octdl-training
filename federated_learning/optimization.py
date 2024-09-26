@@ -28,7 +28,7 @@ def get_checkpoints_folder_path(study_name: str, fl_strategy: FLStrategy):
         get_results_path(fl_strategy), 'checkpoints', study_name)
 
 
-def load_weights(fl_strategy: FLStrategy, model: torch.nn.Module, study_name, trial_number, round):
+def load_weights(fl_strategy: FLStrategy, model: torch.nn.Module, study_name, trial_number):
     path = os.path.join(
         get_checkpoints_folder_path(study_name, fl_strategy),
         f"trial_{trial_number}"

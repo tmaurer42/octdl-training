@@ -1,3 +1,4 @@
+import copy
 import os
 import argparse
 from typing import get_args
@@ -117,7 +118,7 @@ def run_study(
 
                 if best_value is None or epoch_loss < best_value:
                     best_value = epoch_loss
-                    best_epoch_result = epoch_result
+                    best_epoch_result = copy.deepcopy(epoch_result)
 
             elif optimization_mode == 'maximize_f1_macro':
                 epoch_f1_score = epoch_result.val_metrics[F1ScoreMacro.name()]
@@ -125,7 +126,7 @@ def run_study(
 
                 if best_value is None or epoch_f1_score > best_value:
                     best_value = epoch_f1_score
-                    best_epoch_result = epoch_result
+                    best_epoch_result = copy.deepcopy(epoch_result)
 
             trial.report(report_value, step=current_epoch)
             if trial.should_prune():

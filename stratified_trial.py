@@ -5,12 +5,13 @@ from shared.metrics import BalancedAccuracy, F1ScoreMacro
 from shared.model import get_model_by_type
 from shared.training import evaluate, set_device, train, LossFnType
 
-def try_centralized():
+def stratified_trial():
     all_classes = [OCTDLClass.AMD, OCTDLClass.DME, OCTDLClass.ERM,
                OCTDLClass.NO, OCTDLClass.RAO, OCTDLClass.RVO, OCTDLClass.VID]
     
     metrics = [BalancedAccuracy(),  F1ScoreMacro()]
-    loss_fn: LossFnType = nn.CrossEntropyLoss()
+    weights = get_balancing_weights(all_classes)
+    loss_fn = nn.CrossEntropyLoss(weight=weights)
 
     epochs = 100
 
@@ -28,7 +29,7 @@ def try_centralized():
     print(len(test_loader.dataset))
 
     model = get_model_by_type(
-        "ResNet50", True, all_classes, dropout)
+        "ResNet50", False, all_classes, dropout)
 
     adam = optim.Adam(model.parameters(), learning_rate)
 
@@ -62,3 +63,6 @@ def try_centralized():
 
     print(metrics)
     print(cm.tolist())
+
+if __name__ == "__main__":
+    stratified_trial()

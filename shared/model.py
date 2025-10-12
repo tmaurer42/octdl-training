@@ -1,8 +1,8 @@
 from typing import Literal
+from enum import IntEnum
+
 from torch import nn
 from torchvision import models
-
-from shared.data import OCTDLClass
 
 
 ModelType = Literal["ResNet18", "MobileNetV2", "EfficientNetV2", "ResNet50"]
@@ -11,7 +11,7 @@ ModelType = Literal["ResNet18", "MobileNetV2", "EfficientNetV2", "ResNet50"]
 def get_model_by_type(
     model_type: ModelType,
     transfer_learning: bool,
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     dropout: float
 ) -> nn.Module:
     if model_type == "ResNet18":

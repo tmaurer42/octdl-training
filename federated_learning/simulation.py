@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import IntEnum
 
 import flwr as fl
 import torch
@@ -6,12 +7,12 @@ import torch
 from federated_learning.strategy import FLStrategy
 
 from .client import ClientConfig, generate_client_fn, generate_fedbuff_client_fn
-from shared.data import OCTDLClass, prepare_dataset_partitioned
+from shared.data import prepare_dataset_partitioned
 
 
 @dataclass
 class DatasetConfig():
-    classes: list[OCTDLClass]
+    classes: list[IntEnum]
     augmentation: bool
     batch_size: int
     n_workers: int = 0

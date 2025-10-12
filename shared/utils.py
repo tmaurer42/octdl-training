@@ -1,8 +1,8 @@
 import os
 import shutil
 from typing import Optional
+from enum import IntEnum
 
-from shared.data import OCTDLClass
 from shared.model import ModelType
 from shared.training import LossFnType, OptimizationMode
 
@@ -28,7 +28,7 @@ def delete_except(path, folder_name_to_keep):
 
 
 def get_study_name(
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     model: ModelType,
     transfer_learning: bool,
     loss_fn_type: LossFnType,
@@ -41,7 +41,7 @@ def get_study_name(
 
 
 def get_fl_study_name(
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     model: ModelType,
     transfer_learning: bool,
     loss_fn_type: LossFnType,

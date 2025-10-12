@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import os
 from typing import Optional
+from enum import IntEnum
 
 import optuna
 import torch
@@ -12,7 +13,7 @@ from sklearn import metrics
 from centralized.optimization import get_study_name, load_weights
 from federated_learning.strategy import FLStrategy
 from federated_learning.optimization import load_weights as load_weigths_fl
-from shared.data import OCTDLClass, OCTDataset, get_transforms, load_octdl_data, prepare_dataset
+from shared.data import OCTDataset, get_transforms, load_octdl_data, prepare_dataset
 from shared.metrics import BalancedAccuracy, CategoricalMetric, F1ScoreMacro, balanced_accuracy
 from shared.model import ModelType, get_model_by_type
 from shared.training import set_device, LossFnType, OptimizationMode
@@ -28,7 +29,7 @@ class FLEvalParameters:
 
 def get_result_db_name(
     model_type: ModelType,
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     optimization_mode: OptimizationMode
 ):
     classes_str = '-'.join([cls.name for cls in classes])
@@ -36,7 +37,7 @@ def get_result_db_name(
 
 
 def get_study(
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     model_type: ModelType,
     transfer_learning: bool,
     loss_fn_type: LossFnType,
@@ -73,7 +74,7 @@ def get_study(
 
 
 def evaluate(
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     model_type: ModelType,
     transfer_learning: bool,
     optimization_mode: OptimizationMode,

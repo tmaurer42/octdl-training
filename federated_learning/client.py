@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import math
 from collections import OrderedDict
 import copy
+from enum import IntEnum
 
 import numpy as np
 import flwr as fl
@@ -13,7 +14,6 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from shared.training import LossFnType, eval_optimized, train, evaluate, train_optimized
-from shared.data import OCTDLClass
 from shared.model import ModelType, get_model_by_type
 from shared.metrics import CategoricalMetric
 
@@ -37,7 +37,7 @@ class FlClient(fl.client.NumPyClient):
         self,
         train_loader: DataLoader,
         val_loader: DataLoader,
-        classes: list[OCTDLClass],
+        classes: list[IntEnum],
         config: ClientConfig
     ) -> None:
         super().__init__()
@@ -192,7 +192,7 @@ class FedBuffClient(FlClient):
         self,
         train_loader: DataLoader,
         val_loader: DataLoader,
-        classes: list[OCTDLClass],
+        classes: list[IntEnum],
         config: ClientConfig
     ) -> None:
         super().__init__(train_loader, val_loader, classes, config)
@@ -247,7 +247,7 @@ class FedBuffClient(FlClient):
 def generate_client_fn(
     train_loaders: list[DataLoader],
     val_loaders: list[DataLoader],
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     config: ClientConfig
 ):
     def client_fn(ctx: fl.common.Context):
@@ -266,7 +266,7 @@ def generate_client_fn(
 def generate_fedbuff_client_fn(
     train_loaders: list[DataLoader],
     val_loaders: list[DataLoader],
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     config: ClientConfig
 ):
     def client_fn(ctx: fl.common.Context):

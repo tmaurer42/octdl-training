@@ -1,6 +1,7 @@
 from logging import INFO
 import time
 import os
+from enum import IntEnum
 
 import optuna
 from optuna.study import StudyDirection
@@ -12,7 +13,6 @@ from federated_learning.fedavg import get_fedavg
 from federated_learning.fedbuff import get_fedbuff
 from federated_learning.strategy import FLStrategy
 from federated_learning.simulation import DatasetConfig, run_fl_simulation
-from shared.data import OCTDLClass
 from shared.metrics import BalancedAccuracy, F1ScoreMacro
 from shared.model import ModelType, get_model_by_type
 from shared.training import LossFnType, OptimizationMode, set_device
@@ -48,7 +48,7 @@ def run_study(
     n_rounds: int,
     model_type: ModelType,
     transfer_learning: bool,
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,
     n_clients_per_round: int = None,
@@ -206,7 +206,7 @@ def run_study(
 
 def main(
     model_type: ModelType,
-    class_list: list[OCTDLClass],
+    class_list: list[IntEnum],
     transfer_learning: bool,
     loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,

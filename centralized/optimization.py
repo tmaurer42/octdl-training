@@ -2,12 +2,13 @@ import copy
 import os
 import argparse
 from typing import get_args
+from enum import IntEnum
 
 import optuna
 import torch
 from torch import nn, optim
 
-from shared.data import OCTDLClass, get_balancing_weights, prepare_dataset
+from shared.data import get_balancing_weights, prepare_dataset
 from shared.metrics import BalancedAccuracy, F1ScoreMacro
 from shared.training import EarlyStopping, set_device, train, TrainEpochResult, OptimizationMode, LossFnType
 from shared.model import ModelType, get_model_by_type
@@ -45,7 +46,7 @@ def run_study(
     study_name: str,
     model_type: ModelType,
     transfer_learning: bool,
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,
     n_jobs: int,
@@ -172,7 +173,7 @@ def run_study(
 
 def main(
     model_type: ModelType,
-    class_list: list[OCTDLClass],
+    class_list: list[IntEnum],
     transfer_learning: bool,
     loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,

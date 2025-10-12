@@ -1,5 +1,5 @@
 import os
-from enum import Enum
+from enum import IntEnum
 import functools
 from collections import Counter
 
@@ -15,7 +15,7 @@ import numpy as np
 from sklearn import model_selection
 
 
-class OCTDLClass(Enum):
+class OCTDLClass(IntEnum):
     AMD = 0
     DME = 1
     ERM = 2
@@ -39,7 +39,7 @@ class OCTDataset(Dataset):
         transform (callable, optional): Optional transform to be applied to a sample.
     """
 
-    def __init__(self, data: list[tuple[str, str]], classes: list[Enum], transform=None):
+    def __init__(self, data: list[tuple[str, str]], classes: list[IntEnum], transform=None):
         self.data = data
         self.transform = transform
         self.classes = [cls.name for cls in classes]
@@ -113,7 +113,7 @@ def _duplicate_single_occurrence(data: list[tuple[str, str]]):
 
 
 def prepare_dataset(
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     augmentation: bool,
     batch_size: int,
     validation_batch_size: int,
@@ -137,7 +137,7 @@ def prepare_dataset(
 
 
 def get_partitioned_data(
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     augmentation: bool,
     n_partitions: int,
     img_target_size=224,
@@ -169,7 +169,7 @@ def get_partitioned_data(
 
 
 def prepare_dataset_partitioned(
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     augmentation: bool,
     batch_size: int,
     validation_batch_size: int,
@@ -199,7 +199,7 @@ def prepare_dataset_partitioned(
 
 
 def load_octdl_data(
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     ds_dir: str = './OCTDL',
     labels_file: str = 'OCTDL_labels.csv',
     n_partitions: int = 1
@@ -211,7 +211,7 @@ def load_octdl_data(
     present in only one of the sets.
 
     Parameters:
-        classes (list[OCTDLClass]): 
+        classes (list[IntEnum]): 
             The classes to load.
         ds_dir (str): 
             Directory containing the dataset. Default is './OCTDL'.
@@ -284,7 +284,7 @@ def load_octdl_data(
 
 
 def get_balancing_weights(
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     ds_dir: str = './OCTDL',
     labels_file: str = 'OCTDL_labels.csv'
 ):
@@ -414,7 +414,7 @@ def data_transforms_octdl():
     return train_preprocess, test_preprocess
 
 def get_octdl_datasets_stratified(
-    classes: list[OCTDLClass],
+    classes: list[IntEnum],
     batch_size: int,
     ds_dir: str = './OCTDL',
     labels_file: str = 'OCTDL_labels.csv',

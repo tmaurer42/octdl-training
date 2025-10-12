@@ -12,7 +12,7 @@ from sklearn import metrics
 from centralized.optimization import get_study_name, load_weights
 from federated_learning.strategy import FLStrategy
 from federated_learning.optimization import load_weights as load_weigths_fl
-from shared.data import OCTDLClass, OCTDLDataset, get_transforms, load_octdl_data, prepare_dataset
+from shared.data import OCTDLClass, OCTDataset, get_transforms, load_octdl_data, prepare_dataset
 from shared.metrics import BalancedAccuracy, CategoricalMetric, F1ScoreMacro, balanced_accuracy
 from shared.model import ModelType, get_model_by_type
 from shared.training import set_device, LossFnType, OptimizationMode

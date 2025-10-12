@@ -25,7 +25,7 @@ class OCTDLClass(Enum):
     VID = 6
 
 
-class OCTDLDataset(Dataset):
+class OCTDataset(Dataset):
     """
     A PyTorch Dataset for the OCTDL dataset.
 
@@ -39,7 +39,7 @@ class OCTDLDataset(Dataset):
         transform (callable, optional): Optional transform to be applied to a sample.
     """
 
-    def __init__(self, data: list[tuple[str, str]], classes: list[OCTDLClass], transform=None):
+    def __init__(self, data: list[tuple[str, str]], classes: list[Enum], transform=None):
         self.data = data
         self.transform = transform
         self.classes = [cls.name for cls in classes]
@@ -143,7 +143,7 @@ def get_partitioned_data(
     img_target_size=224,
     ds_dir: str = './OCTDL',
     labels_file: str = 'OCTDL_labels.csv'
-) -> tuple[list[OCTDLDataset], list[OCTDLDataset], OCTDLDataset]:
+) -> tuple[list[OCTDataset], list[OCTDataset], OCTDataset]:
     partitions, test_data = load_octdl_data(
         classes, ds_dir, labels_file, n_partitions)
 
@@ -153,17 +153,17 @@ def get_partitioned_data(
     val_datasets = []
     for partition in partitions:
         (train_data, val_data) = partition
-        train_ds = OCTDLDataset(
+        train_ds = OCTDataset(
             train_data,
             classes,
             transform=train_transform if augmentation else base_transform
         )
-        val_ds = OCTDLDataset(val_data, classes, transform=base_transform)
+        val_ds = OCTDataset(val_data, classes, transform=base_transform)
 
         train_datasets.append(train_ds)
         val_datasets.append(val_ds)
 
-    test_ds = OCTDLDataset(test_data, classes, transform=base_transform)
+    test_ds = OCTDataset(test_data, classes, transform=base_transform)
 
     return train_datasets, val_datasets, test_ds
 
@@ -443,17 +443,17 @@ def get_octdl_datasets_stratified(
 
     train_preprocess, test_preprocess = data_transforms_octdl()
 
-    train_ds = OCTDLDataset(
+    train_ds = OCTDataset(
         list(zip(train_data, train_labels)), 
         classes, 
         train_preprocess
     )
-    val_ds = OCTDLDataset(
+    val_ds = OCTDataset(
         list(zip(val_data, val_labels)), 
         classes,
         test_preprocess
     )
-    test_ds = OCTDLDataset(
+    test_ds = OCTDataset(
         list(zip(test_data, test_labels)), 
         classes, 
         test_preprocess

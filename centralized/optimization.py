@@ -51,6 +51,10 @@ def run_study(
     optimization_mode: OptimizationMode,
     n_jobs: int,
     n_trials: int = 100,
+    ds_dir: str = './OCTDL',
+    labels_file: str = 'OCTDL_labels.csv',
+    label_column_name: str = 'disease',
+    partition_key: str = 'patient_id',
 ):
     device = set_device()
 
@@ -73,7 +77,11 @@ def run_study(
             augmentation=apply_augmentation,
             batch_size=batch_size,
             img_target_size=image_size,
-            validation_batch_size=32
+            validation_batch_size=32,
+            ds_dir=ds_dir,
+            labels_file=labels_file,
+            label_column_name=label_column_name,
+            partition_key=partition_key
         )
 
         # Initialize model
@@ -82,7 +90,12 @@ def run_study(
 
         adam = optim.Adam(model.parameters(), learning_rate)
 
-        balancing_weights = get_balancing_weights(classes)
+        balancing_weights = get_balancing_weights(
+            classes,
+            ds_dir,
+            labels_file,
+            label_column_name,
+        )
         loss_fn = None
         if loss_fn_type == 'CrossEntropy':
             loss_fn = nn.CrossEntropyLoss()
@@ -177,7 +190,11 @@ def main(
     transfer_learning: bool,
     loss_fn_type: LossFnType,
     optimization_mode: OptimizationMode,
-    n_jobs=1
+    n_jobs=1,
+    ds_dir: str = './OCTDL',
+    labels_file: str = 'OCTDL_labels.csv',
+    label_column_name: str = 'disease',
+    partition_key: str = 'patient_id',
 ):
     study_name = get_study_name(
         class_list, model_type, transfer_learning, loss_fn_type, optimization_mode)
@@ -189,5 +206,9 @@ def main(
         loss_fn_type=loss_fn_type,
         optimization_mode=optimization_mode,
         n_trials=100,
-        n_jobs=n_jobs
+        n_jobs=n_jobs,
+        ds_dir=ds_dir,
+        labels_file=labels_file,
+        label_column_name=label_column_name,
+        partition_key=partition_key
     )

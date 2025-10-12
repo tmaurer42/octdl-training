@@ -10,7 +10,7 @@ from federated_learning.client import ClientConfig
 from federated_learning.fedavg import get_fedavg
 from federated_learning.fedbuff import get_fedbuff
 from federated_learning.simulation import DatasetConfig, run_fl_simulation
-from shared.data import OCTDLClass, OCTDataset, get_balancing_weights, load_octdl_data, get_transforms, prepare_dataset, get_octdl_datasets_stratified
+from shared.data import OCTDLClass, OCTDataset, get_balancing_weights, get_transforms, prepare_dataset, get_octdl_datasets_stratified
 from shared.metrics import BalancedAccuracy, F1ScoreMacro
 from shared.model import get_efficientnet, get_mobilenet, get_model_by_type
 from shared.training import EarlyStopping, evaluate, set_device, train, LossFnType

@@ -54,6 +54,10 @@ def run_study(
     n_clients_per_round: int = None,
     n_jobs: int = 1,
     n_trials: int = 100,
+    ds_dir: str = './OCTDL',
+    labels_file: str = 'OCTDL_labels.csv',
+    label_column_name: str = 'disease',
+    partition_key: str = 'patient_id',
 ):
     results_path = get_results_path(fl_strategy)
 
@@ -129,7 +133,11 @@ def run_study(
                 dataset_config=DatasetConfig(
                     augmentation=apply_augmentation,
                     batch_size=batch_size,
-                    classes=classes
+                    classes=classes,
+                    ds_dir=ds_dir,
+                    labels_file=labels_file,
+                    label_column_name=label_column_name,
+                    partition_key=partition_key
                 ),
                 client_config=ClientConfig(
                     device=device,
@@ -214,7 +222,11 @@ def main(
     n_clients: int,
     n_rounds: int,
     n_clients_per_round: int,
-    n_jobs=1
+    n_jobs=1,
+    ds_dir: str = './OCTDL',
+    labels_file: str = 'OCTDL_labels.csv',
+    label_column_name: str = 'disease',
+    partition_key: str = 'patient_id',
 ):
     study_name = get_fl_study_name(
         class_list,
@@ -238,4 +250,8 @@ def main(
         n_trials=100,
         optimization_mode=optimization_mode,
         n_jobs=n_jobs,
+        ds_dir=ds_dir,
+        labels_file=labels_file,
+        label_column_name=label_column_name,
+        partition_key=partition_key,
     )

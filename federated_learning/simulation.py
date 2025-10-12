@@ -15,6 +15,10 @@ class DatasetConfig():
     classes: list[IntEnum]
     augmentation: bool
     batch_size: int
+    ds_dir: str = './OCTDL'
+    labels_file: str = 'OCTDL_labels.csv'
+    label_column_name: str = 'disease'
+    partition_key: str = 'patient_id'
     n_workers: int = 0
     pin_memory: bool = False
 
@@ -33,6 +37,10 @@ def run_fl_simulation(
         batch_size=dataset_config.batch_size,
         n_partitions=n_clients,
         validation_batch_size=client_config.validation_batch_size,
+        ds_dir=dataset_config.ds_dir,
+        labels_file=dataset_config.labels_file,
+        label_column_name=dataset_config.label_column_name,
+        partition_key=dataset_config.partition_key,
         n_workers=dataset_config.n_workers,
         pin_memory=dataset_config.pin_memory
     )

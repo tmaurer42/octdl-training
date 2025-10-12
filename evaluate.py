@@ -13,7 +13,7 @@ from sklearn import metrics
 from centralized.optimization import get_study_name, load_weights
 from federated_learning.strategy import FLStrategy
 from federated_learning.optimization import load_weights as load_weigths_fl
-from shared.data import OCTDataset, get_transforms, load_octdl_data, prepare_dataset
+from shared.data import OCTDataset, get_transforms, prepare_dataset
 from shared.metrics import BalancedAccuracy, CategoricalMetric, F1ScoreMacro, balanced_accuracy
 from shared.model import ModelType, get_model_by_type
 from shared.training import set_device, LossFnType, OptimizationMode
@@ -79,7 +79,11 @@ def evaluate(
     transfer_learning: bool,
     optimization_mode: OptimizationMode,
     loss_fn_type: LossFnType,
-    fl_eval_parameters: Optional[FLEvalParameters] = None
+    fl_eval_parameters: Optional[FLEvalParameters] = None,
+    ds_dir: str = './OCTDL',
+    labels_file: str = 'OCTDL_labels.csv',
+    label_column_name: str = 'disease',
+    partition_key: str = 'patient_id',
 ):
     study = get_study(
         classes, model_type, transfer_learning,
@@ -89,7 +93,15 @@ def evaluate(
     best_trial = study.best_trial
 
     _, _, test_loader = prepare_dataset(
-        classes=classes, augmentation=False, batch_size=1, validation_batch_size=32)
+        classes=classes, 
+        augmentation=False, 
+        batch_size=1, 
+        validation_batch_size=32,
+        ds_dir=ds_dir,
+        labels_file=labels_file,
+        label_column_name=label_column_name,
+        partition_key=partition_key
+    )
 
     model = get_model_by_type(model_type, transfer_learning, classes, 0.0)
 

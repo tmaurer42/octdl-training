@@ -58,6 +58,12 @@ def run_study(
     labels_file: str = 'OCTDL_labels.csv',
     label_column_name: str = 'disease',
     partition_key: str = 'patient_id',
+    batch_sizes: list[int] =  [8, 16, 32, 64, 128],
+    learning_rate_range: tuple[float, float, bool] = (0.0001, 0.1, True),
+    augmentation: bool = True,
+    dropout_range: tuple[float, float, float] = (0.0, 0.5, 0.1),
+    local_epoch_range: tuple[int, int, int] = (1, 10, 1),
+    fedbuff_server_lr_range: tuple[float, float, bool] = (0.0001, 0.1, True)
 ):
     results_path = get_results_path(fl_strategy)
 
@@ -66,16 +72,16 @@ def run_study(
 
         # Tunable Hyperparameters
         batch_size = trial.suggest_categorical(
-            "batch_size", [8, 16, 32, 64, 128])
+            "batch_size", batch_sizes)
         learning_rate = trial.suggest_float(
-            "learning_rate", 0.0001, 0.1, log=True)
+            "learning_rate", learning_rate_range[0], learning_rate_range[1], log=learning_rate_range[2])
         apply_augmentation = trial.suggest_categorical(
-            "apply_augmentation", [True, False])
-        dropout = trial.suggest_float("dropout", 0.0, 0.5, step=0.1)
-        local_epochs = trial.suggest_int("local_epochs", 1, 10, step=1)
+            "apply_augmentation", [True, False]) if augmentation else False
+        dropout = trial.suggest_float("dropout", dropout_range[0], dropout_range[1], step=dropout_range[2])
+        local_epochs = trial.suggest_int("local_epochs", local_epoch_range[0], local_epoch_range[1], step=local_epoch_range[2])
 
         if fl_strategy == 'FedBuff':
-            server_lr = trial.suggest_float("server_lr", 0.0001, 0.1, log=True)
+            server_lr = trial.suggest_float("server_lr", fedbuff_server_lr_range[0], fedbuff_server_lr_range[1], log=fedbuff_server_lr_range[2])
 
         # Initialize model
         model = get_model_by_type(
@@ -227,6 +233,12 @@ def main(
     labels_file: str = 'OCTDL_labels.csv',
     label_column_name: str = 'disease',
     partition_key: str = 'patient_id',
+    batch_sizes: list[int] =  [8, 16, 32, 64, 128],
+    learning_rate_range: tuple[float, float, bool] = (0.0001, 0.1, True),
+    augmentation: bool = True,
+    dropout_range: tuple[float, float, float] = (0.0, 0.5, 0.1),
+    local_epoch_range: tuple[int, int, int] = (1, 10, 1),
+    fedbuff_server_lr_range: tuple[float, float, bool] = (0.0001, 0.1, True)
 ):
     study_name = get_fl_study_name(
         class_list,
@@ -254,4 +266,10 @@ def main(
         labels_file=labels_file,
         label_column_name=label_column_name,
         partition_key=partition_key,
+        batch_sizes=batch_sizes,
+        learning_rate_range=learning_rate_range,
+        augmentation=augmentation,
+        dropout_range=dropout_range,
+        local_epoch_range=local_epoch_range,
+        fedbuff_server_lr_range=fedbuff_server_lr_range
     )

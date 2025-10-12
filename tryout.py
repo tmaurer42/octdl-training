@@ -93,12 +93,10 @@ def try_federated():
     device = set_device()
 
     n_clients = 3
-
     
-    """
     fedavg = get_fedavg(
         n_clients,
-        10,
+        n_clients,
         metrics,
         model=model, 
         checkpoint_path=None,
@@ -117,6 +115,7 @@ def try_federated():
         checkpoint_path=None,
         on_aggregate_evaluated=callback
     )
+    """
 
     h = run_fl_simulation(
         n_clients=n_clients,
@@ -139,8 +138,8 @@ def try_federated():
             validation_batch_size=32,
             optimized=True,
         ),
-        strategy=fedbuff,
-        strategy_name='FedBuff'
+        strategy=fedavg,
+        strategy_name='FedAvg'
     )
 
     _, val_loader, test_loader = prepare_dataset(all_classes,False,1,32)

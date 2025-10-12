@@ -55,6 +55,10 @@ def run_study(
     labels_file: str = 'OCTDL_labels.csv',
     label_column_name: str = 'disease',
     partition_key: str = 'patient_id',
+    batch_sizes: list[int] =  [8, 16, 32, 64, 128],
+    learning_rate_range: tuple[float, float, bool] = (0.0001, 0.1, True),
+    augmentation: bool = True,
+    dropout_range: tuple[float, float, float] = (0.0, 0.5, 0.1),
 ):
     device = set_device()
 
@@ -64,12 +68,12 @@ def run_study(
 
         # Tunable Hyperparameters
         batch_size = trial.suggest_categorical(
-            "batch_size", [8, 16, 32, 64, 128])
+            "batch_size", batch_sizes)
         learning_rate = trial.suggest_float(
-            "learning_rate", 0.0001, 0.1, log=True)
+            "learning_rate", learning_rate_range[0], learning_rate_range[1], log=learning_rate_range[2])
         apply_augmentation = trial.suggest_categorical(
-            "apply_augmentation", [True, False])
-        dropout = trial.suggest_float("dropout", 0.0, 0.5, step=0.1)
+            "apply_augmentation", [True, False]) if augmentation else False
+        dropout = trial.suggest_float("dropout", dropout_range[0], dropout_range[1], step=dropout_range[2])
 
         # Initialize data
         train_loader, val_loader, _ = prepare_dataset(
@@ -195,6 +199,10 @@ def main(
     labels_file: str = 'OCTDL_labels.csv',
     label_column_name: str = 'disease',
     partition_key: str = 'patient_id',
+    batch_sizes: list[int] =  [8, 16, 32, 64, 128],
+    learning_rate_range: tuple[float, float, bool] = (0.0001, 0.1, True),
+    augmentation: bool = True,
+    dropout_range: tuple[float, float, float] = (0.0, 0.5, 0.1),
 ):
     study_name = get_study_name(
         class_list, model_type, transfer_learning, loss_fn_type, optimization_mode)
@@ -210,5 +218,9 @@ def main(
         ds_dir=ds_dir,
         labels_file=labels_file,
         label_column_name=label_column_name,
-        partition_key=partition_key
+        partition_key=partition_key,
+        batch_sizes=batch_sizes,
+        learning_rate_range=learning_rate_range,
+        augmentation=augmentation,
+        dropout_range=dropout_range,
     )

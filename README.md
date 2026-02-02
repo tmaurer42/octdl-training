@@ -263,12 +263,16 @@ All models are adapted for grayscale OCT images (converted to 3-channel for tran
 
 If you use this code, please cite our paper:
 
-```to be updated
-```
+> Alam, H. M. T., Maurer, T., Selim, A. M., Eiletz, M., Barz, M., & Sonntag, D. (2026).
+> Asynchronous federated learning for web-based OCT image analysis.
+> *Journal of Medical Imaging*, 13(1), 014501. https://doi.org/10.1117/1.JMI.13.1.014501
+
+
 
 ## License
-```to be updated
-```
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
 
 ## contact
 - hasan.alam@dfki.de
